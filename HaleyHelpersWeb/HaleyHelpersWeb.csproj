@@ -7,16 +7,19 @@
     <OutputType>Library</OutputType>
     <RootNamespace>Haley</RootNamespace>
     <AssemblyName>Haley.Helpers.Web</AssemblyName>
-    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <Authors>TheHaleyProject</Authors>
     <Company>TheHaleyProject</Company>
     <Copyright>Haley 2024</Copyright>
     <SignAssembly>True</SignAssembly>
+    <IsPackable>true</IsPackable>
     <AssemblyOriginatorKeyFile>..\..\HaleyProject\HaleyProject.snk</AssemblyOriginatorKeyFile>
     <PackageIcon>Haley.png</PackageIcon>
-    <Version>0.0.1</Version>
+    <Version>0.0.2</Version>
     <IncludeSymbols>True</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <PackageReleaseNotes>Web api helpers to ease the setup</PackageReleaseNotes>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
 
   <ItemGroup>

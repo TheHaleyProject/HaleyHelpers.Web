@@ -12,7 +12,7 @@
     <Company>TheHaleyProject</Company>
     <Copyright>Haley 2024</Copyright>
     <SignAssembly>True</SignAssembly>
-    <AssemblyOriginatorKeyFile>D:\Projects\repos\HaleyProject\HaleyProject\HaleyProject.snk</AssemblyOriginatorKeyFile>
+    <AssemblyOriginatorKeyFile>..\..\HaleyProject\HaleyProject.snk</AssemblyOriginatorKeyFile>
     <PackageIcon>Haley.png</PackageIcon>
     <Version>0.0.1</Version>
     <IncludeSymbols>True</IncludeSymbols>

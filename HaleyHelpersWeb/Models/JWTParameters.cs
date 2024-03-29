@@ -7,10 +7,13 @@ namespace Haley.Models {
         public string Audience { get; set; }
         public bool ValidateIssuer { get; set; }
         public bool ValidateAudience { get; set; }
+        public bool BaseEncodedSecret { get; set; }
         public byte[] GetSecret() {
-            return Encoding.ASCII.GetBytes(Secret);
-            //var _secret = Encoding.UTF8.GetString(Convert.FromBase64String(Secret));
-            //return Encoding.ASCII.GetBytes(_secret);
+            if (!BaseEncodedSecret) {
+                return Encoding.ASCII.GetBytes(Secret);
+            }
+            var _secret = Encoding.UTF8.GetString(Convert.FromBase64String(Secret));
+            return Encoding.ASCII.GetBytes(_secret);
         }
         public JWTParameters() { }
     }

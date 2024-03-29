@@ -3,12 +3,15 @@ using Microsoft.OpenApi.Models;
 using System.Drawing;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using System.Text;
 
 namespace Haley {
 
     public static class WebAppMaker {
 
         public static WebApplication GetAppWithJWT(string[] args, Action<WebApplicationBuilder> builderProcessor = null, Action<WebApplication> appProcessor = null, Func<string[]> jsonPathsProvider = null) {
+
+            //SETUP THE DB ADAPTER DICTIONARY
             var builder = WebApplication.CreateBuilder(args);
             List<string> allpaths = new List<string>(); //Json paths.
             if (jsonPathsProvider != null) {
@@ -25,6 +28,7 @@ namespace Haley {
 
             builder.Services.AddSingleton(DBAdapterDictionary.Instance); //Not necessary as we can directly call the singleton.
 
+            //ADD BASIC SERVICES
             builder.Services.AddControllers();
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(gen => {
@@ -50,6 +54,7 @@ namespace Haley {
                 });
             });
 
+            //ADD AUTHENTICATION AND AUTHORIZATION
             if (Globals.JWTParams != null) {
                 builder.Services.AddAuthentication(p => {
                     p.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -64,15 +69,19 @@ namespace Haley {
                         ValidateAudience = jwtparams.ValidateAudience,
                         ValidIssuer = jwtparams.Issuer,
                         ValidAudience = jwtparams.Audience,
-                        IssuerSigningKey = new SymmetricSecurityKey(Globals.JWTParams.GetSecret())
+                        IssuerSigningKey = new SymmetricSecurityKey(jwtparams.GetSecret())
                     };
                 });
+                builder.Services.AddAuthorization();
             }
 
+            //INVOKE USER DEFINED SERVICE ADDITION
             builderProcessor?.Invoke(builder);
             //builder.Logging.ClearProviders(); //only for production.
 
             var app = builder.Build();
+
+            // INVOKE USER DEFINED SERVICE USES FOR THE APP
             appProcessor?.Invoke(app);
             app.UseSwagger();
             app.UseSwaggerUI();

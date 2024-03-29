@@ -14,12 +14,14 @@
     <IsPackable>true</IsPackable>
     <AssemblyOriginatorKeyFile>..\..\HaleyProject\HaleyProject.snk</AssemblyOriginatorKeyFile>
     <PackageIcon>Haley.png</PackageIcon>
-    <Version>0.0.2</Version>
+    <Version>0.0.3</Version>
     <IncludeSymbols>True</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <PackageReleaseNotes>Web api helpers to ease the setup</PackageReleaseNotes>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/TheHaleyProject/HaleyHelpers.Web</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/TheHaleyProject/HaleyHelpers.Web</RepositoryUrl>
   </PropertyGroup>
 
   <ItemGroup>
@@ -47,7 +49,7 @@
     </When>
     <Otherwise>
       <ItemGroup>
-        <PackageReference Include="Haley.Helpers.DB" Version="0.0.2" />
+        <PackageReference Include="Haley.Helpers.DB" Version="0.0.3" />
       </ItemGroup>
     </Otherwise>
   </Choose>

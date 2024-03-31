@@ -1,5 +1,7 @@
 ﻿using Haley.Models;
 using Microsoft.AspNetCore.Mvc;
+using System.Collections;
+using System.Runtime.CompilerServices;
 
 namespace Haley.Utils {
     public static class DBAExecuter {
@@ -33,7 +35,7 @@ namespace Haley.Utils {
                 object result = null;
                 switch (isread) {
                     case true:
-                    result =  (await DBA[dbakey]?.ExecuteReader(query, null,parameters))?.Select(true)?.Convert();
+                    result = (await DBA[dbakey]?.ExecuteReader(query, null, parameters))?.Select(true)?.Convert()?.ToList();
                     break;
                     case false:
                     default:
@@ -45,6 +47,13 @@ namespace Haley.Utils {
                 logger.LogError($@"Error while trying to execute read operation for key {dbakey} with query - {query} . {Environment.NewLine} {ex.Message}");
                 return new BadRequestObjectResult(ex.Message);
             }
+        }
+
+        public static object GetFirst(this object input) {
+            if (input is List<Dictionary<string,object>> dicList && dicList.Count() > 0 && dicList.First()?.First() != null) {
+                return dicList.First().First().Value?.ToString();
+            }
+            return null;
         }
     }
 }

@@ -9,6 +9,7 @@ namespace Haley {
 
     public static class WebAppMaker {
 
+        public static JWTParameters JWTParams = Globals.JWTParams;
         public static WebApplication GetAppWithJWT(string[] args, Action<WebApplicationBuilder> builderProcessor = null, Action<WebApplication> appProcessor = null, Func<string[]> jsonPathsProvider = null) {
 
             //SETUP THE DB ADAPTER DICTIONARY

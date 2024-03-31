@@ -66,6 +66,9 @@ namespace Haley {
                     var jwtparams = Globals.JWTParams;
                     q.TokenValidationParameters = new TokenValidationParameters() {
                         ValidateIssuerSigningKey = true, //Important as this will verfiy the signature
+                        ValidateLifetime = true,
+                        ClockSkew = TimeSpan.Zero,
+                        RequireExpirationTime = true,
                         ValidateIssuer = jwtparams.ValidateIssuer,
                         ValidateAudience = jwtparams.ValidateAudience,
                         ValidIssuer = jwtparams.Issuer,

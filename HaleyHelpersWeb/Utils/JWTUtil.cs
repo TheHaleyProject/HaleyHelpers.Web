@@ -17,12 +17,13 @@ namespace Haley.Utils {
             return handler.WriteToken(secToken);
         }
 
-        public static async Task<JwtSecurityToken> ParseToken(this HttpContext input) {
+        public static async Task<JwtSecurityToken> ParseToken(this HttpContext input, ILogger logger) {
             try {
                 var accessToken = await input.GetTokenAsync("access_token"); //this will work only if we have set the "savetoken=true" in the jWT Bearer settings.
                 return new JwtSecurityTokenHandler().ReadJwtToken(accessToken);
             } catch (Exception ex) {
-                throw new ArgumentException("Exception while trying to fetch the claims from the JWT token. Ensure the JWTBearerOptions has SaveToken set to true.");
+                logger?.LogError("Exception while trying to fetch the claims from the JWT token. Ensure the JWTBearerOptions has SaveToken set to true.");
+                return null;
             }
         }
     }

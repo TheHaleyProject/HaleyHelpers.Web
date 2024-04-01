@@ -8,6 +8,7 @@ namespace Haley.Models {
         public bool ValidateIssuer { get; set; }
         public bool ValidateAudience { get; set; }
         public bool BaseEncodedSecret { get; set; }
+        public double ValidMinutes { get; set; } = 10.0;
         public byte[] GetSecret() {
             if (!BaseEncodedSecret) {
                 return Encoding.ASCII.GetBytes(Secret);

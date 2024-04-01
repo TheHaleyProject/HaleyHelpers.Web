@@ -4,13 +4,22 @@ using System.Drawing;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using System.Text;
+using Haley.Enums;
 
-namespace Haley {
+namespace Haley.Utils {
 
     public static class WebAppMaker {
 
         public static JWTParameters JWTParams = Globals.JWTParams;
-        public static WebApplication GetAppWithJWT(string[] args, Action<WebApplicationBuilder> builderProcessor = null, Action<WebApplication> appProcessor = null, Func<string[]> jsonPathsProvider = null) {
+        public static WebApplication GetAppWithJWT(string[] args, Action<WebApplicationBuilder> builderProcessor = null, Action<WebApplication> appProcessor = null, Func<string[]> jsonPathsProvider = null, bool swagger_in_production = false) {
+            return GetAppInternal(WebAppAuthMode.JWT,args,builderProcessor, appProcessor,jsonPathsProvider, swagger_in_production);
+        }
+
+        public static WebApplication GetApp(string[] args, Action<WebApplicationBuilder> builderProcessor = null, Action<WebApplication> appProcessor = null, Func<string[]> jsonPathsProvider = null, bool swagger_in_production = false) {
+            return GetAppInternal(WebAppAuthMode.None, args, builderProcessor, appProcessor, jsonPathsProvider, swagger_in_production);
+        }
+
+        static WebApplication GetAppInternal(WebAppAuthMode mode , string[] args, Action<WebApplicationBuilder> builderProcessor = null, Action<WebApplication> appProcessor = null, Func<string[]> jsonPathsProvider = null, bool swagger_in_production = false) {
 
             //SETUP THE DB ADAPTER DICTIONARY
             var builder = WebApplication.CreateBuilder(args);
@@ -32,16 +41,17 @@ namespace Haley {
             //ADD BASIC SERVICES
             builder.Services.AddControllers();
             builder.Services.AddEndpointsApiExplorer();
-            builder.Services.AddSwaggerGen(gen => {
-                gen.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme {
-                    Name = "Authorization",
-                    Description = "Please provide a JWT Token",
-                    In = ParameterLocation.Header,
-                    Type = SecuritySchemeType.Http,
-                    Scheme = JwtBearerDefaults.AuthenticationScheme
-                });
-                //gen.OperationFilter<IOperationFilter> //Add implementation of a custom filter. Or use the below security requirement
-                gen.AddSecurityRequirement(new OpenApiSecurityRequirement {
+            if (builder.Environment.IsDevelopment() || swagger_in_production) {
+                builder.Services.AddSwaggerGen(gen => {
+                    gen.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme {
+                        Name = "Authorization",
+                        Description = "Please provide a JWT Token",
+                        In = ParameterLocation.Header,
+                        Type = SecuritySchemeType.Http,
+                        Scheme = JwtBearerDefaults.AuthenticationScheme
+                    });
+                    //gen.OperationFilter<IOperationFilter> //Add implementation of a custom filter. Or use the below security requirement
+                    gen.AddSecurityRequirement(new OpenApiSecurityRequirement {
                     {
                         new OpenApiSecurityScheme {
                             Reference = new OpenApiReference {
@@ -53,10 +63,12 @@ namespace Haley {
                         new List<string>()
                     }
                 });
-            });
+                });
+            }
+
 
             //ADD AUTHENTICATION AND AUTHORIZATION
-            if (Globals.JWTParams != null) {
+            if (mode == WebAppAuthMode.JWT && Globals.JWTParams != null) {
                 builder.Services.AddAuthentication(p => {
                     p.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
                     p.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -76,6 +88,9 @@ namespace Haley {
                         IssuerSigningKey = new SymmetricSecurityKey(jwtparams.GetSecret())
                     };
                 });
+            }
+
+            if (mode != WebAppAuthMode.None) {
                 builder.Services.AddAuthorization();
             }
 
@@ -87,13 +102,14 @@ namespace Haley {
 
             // INVOKE USER DEFINED SERVICE USES FOR THE APP
             appProcessor?.Invoke(app);
-            app.UseSwagger();
-            app.UseSwaggerUI();
-            app.UseHttpsRedirection();
 
-            if (Globals.JWTParams != null) {
-                app.UseAuthentication();
+            if (builder.Environment.IsDevelopment() || swagger_in_production) {
+                app.UseSwagger();
+                app.UseSwaggerUI();
             }
+
+            app.UseHttpsRedirection();
+            app.UseAuthentication();
             app.UseAuthorization();
             app.MapControllers();
             return app;

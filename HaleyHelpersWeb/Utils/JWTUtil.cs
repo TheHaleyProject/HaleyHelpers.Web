@@ -3,6 +3,8 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.Identity.Client;
+using Haley.Models;
 
 namespace Haley.Utils {
 
@@ -17,14 +19,19 @@ namespace Haley.Utils {
             return handler.WriteToken(secToken);
         }
 
-        public static async Task<JwtSecurityToken> ParseToken(this HttpContext input, ILogger logger) {
+        public static async Task<JwtSecurityToken> ParseToken(this HttpContext input) {
             try {
                 var accessToken = await input.GetTokenAsync("access_token"); //this will work only if we have set the "savetoken=true" in the jWT Bearer settings.
                 return new JwtSecurityTokenHandler().ReadJwtToken(accessToken);
             } catch (Exception ex) {
-                logger?.LogError("Exception while trying to fetch the claims from the JWT token. Ensure the JWTBearerOptions has SaveToken set to true.");
                 return null;
             }
+        }
+
+        public static async Task<string> GetDBA(this HttpContext context) {
+            var jwt = await context.ParseToken();
+            if (jwt == null) throw new ArgumentNullException("JWT token is null. Hint: Add token in authorization or Ensure the JWTBearerOptions has SaveToken set to true.");
+            return jwt?.Claims?.FirstOrDefault(p => p.Type == JWTClaimType.DBA_KEY)?.Value;
         }
     }
 }

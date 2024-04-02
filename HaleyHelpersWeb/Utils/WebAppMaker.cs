@@ -5,10 +5,31 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using System.Text;
 using Haley.Enums;
+using Microsoft.AspNetCore.Mvc;
+using System.IdentityModel.Tokens.Jwt;
+using MySqlX.XDevAPI.Common;
 
 namespace Haley.Utils {
 
     public static class WebAppMaker {
+
+        #region Utils
+        public static object GetFirst(this object input) {
+            //If we send error
+            if (input is DBAError dbaerr) {
+                return new BadRequestObjectResult(dbaerr);
+            }
+
+            //If we send direct action result
+            if (typeof(IActionResult).IsAssignableFrom(input.GetType())) return input;
+
+            if (input is List<Dictionary<string, object>> dicList && dicList.Count() > 0 && dicList.First()?.First() != null) {
+                return dicList.First().First().Value?.ToString();
+            }
+            return input;
+        }
+
+        #endregion
 
         public static JWTParameters JWTParams = Globals.JWTParams;
         public static WebApplication GetAppWithJWT(string[] args, Action<WebApplicationBuilder> builderProcessor = null, Action<WebApplication> appProcessor = null, Func<string[]> jsonPathsProvider = null, bool swagger_in_production = false) {
@@ -36,10 +57,10 @@ namespace Haley.Utils {
                     allpaths = allpaths.Distinct().ToList(); //Remove duplicates
                 }
 
-                DBAdapterDictionary.Instance.SetConfigurationRoot(allpaths?.ToArray()).Configure();
-                DBAdapterDictionary.Instance.Updated += Globals.HandleConfigUpdate;
+                DBAService.Instance.SetConfigurationRoot(allpaths?.ToArray()).Configure();
+                DBAService.Instance.Updated += Globals.HandleConfigUpdate;
 
-                builder.Services.AddSingleton(DBAdapterDictionary.Instance); //Not necessary as we can directly call the singleton.
+                builder.Services.AddSingleton(DBAService.Instance); //Not necessary as we can directly call the singleton.
 
                 //ADD BASIC SERVICES
                 builder.Services.AddControllers();

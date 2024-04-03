@@ -20,6 +20,10 @@ namespace Haley.Utils {
                 return new BadRequestObjectResult(dbaerr);
             }
 
+            if (input is DBAResult dbres) {
+                return new OkObjectResult(dbres);
+            }
+
             //If we send direct action result
             if (typeof(IActionResult).IsAssignableFrom(input.GetType())) return input;
 

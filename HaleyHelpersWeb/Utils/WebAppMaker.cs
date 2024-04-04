@@ -17,11 +17,11 @@ namespace Haley.Utils {
         public static object GetFirst(this object input) {
             //If we send error
             if (input is DBAError dbaerr) {
-                return new BadRequestObjectResult(dbaerr);
+                return new BadRequestObjectResult(dbaerr.ToString());
             }
 
             if (input is DBAResult dbres) {
-                return new OkObjectResult(dbres);
+                return new OkObjectResult(dbres.ToString());
             }
 
             //If we send direct action result
@@ -31,6 +31,11 @@ namespace Haley.Utils {
                 return dicList.First().First().Value?.ToString();
             }
             return input;
+        }
+
+        public static async Task<object> GetFirst(this Task<object> input) {
+            var inpuobj = await input;
+            return inpuobj?.GetFirst();
         }
 
         #endregion

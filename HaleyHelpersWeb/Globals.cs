@@ -2,7 +2,7 @@
 using System.Security.Cryptography;
 using System.Text;
 
-namespace Haley {
+namespace Haley.Utils {
     internal static class Globals {
         static JWTParameters _jwtParams;
         internal static JWTParameters JWTParams => GetJWTParams();

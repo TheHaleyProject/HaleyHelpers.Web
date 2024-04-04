@@ -1,20 +1,16 @@
-﻿using Haley.Models;
-using Microsoft.OpenApi.Models;
-using System.Drawing;
-using Microsoft.IdentityModel.Tokens;
+﻿using Haley.Enums;
+using Haley.Models;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using System.Text;
-using Haley.Enums;
 using Microsoft.AspNetCore.Mvc;
-using System.IdentityModel.Tokens.Jwt;
-using MySqlX.XDevAPI.Common;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 
 namespace Haley.Utils {
 
     public static class WebAppMaker {
 
         #region Utils
-        public static object GetFirst(this object input) {
+        public static object GetFirst(this object input, ResultFilter filter = ResultFilter.FirstDictionaryValue) {
             //If we send error
             if (input is DBAError dbaerr) {
                 return new BadRequestObjectResult(dbaerr.ToString());
@@ -27,8 +23,21 @@ namespace Haley.Utils {
             //If we send direct action result
             if (typeof(IActionResult).IsAssignableFrom(input.GetType())) return input;
 
-            if (input is List<Dictionary<string, object>> dicList && dicList.Count() > 0 && dicList.First()?.First() != null) {
-                return dicList.First().First().Value?.ToString();
+            if (filter == ResultFilter.None) return input; //Return result as is.
+
+            if (input is List<Dictionary<string, object>> dicList && dicList.Count() > 0) {
+
+                switch (filter) {
+                    case ResultFilter.FullList:
+                    return dicList;
+                    case ResultFilter.FullListValueArray:
+                    return dicList.SelectMany(p => p.Values.Select(q=>q)).ToList();
+                    case ResultFilter.FirstDictionary:
+                    return dicList.First();
+                    case ResultFilter.FirstDictionaryValue:
+                    if (dicList.First()?.First() != null) return dicList.First().First().Value;
+                    return dicList.First().First();
+                }
             }
             return input;
         }
@@ -66,7 +75,7 @@ namespace Haley.Utils {
                     allpaths = allpaths.Distinct().ToList(); //Remove duplicates
                 }
 
-                DBAService.Instance.SetConfigurationRoot(allpaths?.ToArray()).Configure();
+                DBAService.Instance.SetConfigurationRoot(allpaths?.ToArray()).Configure().SetServiceUtil(new DBAServiceUtil());
                 DBAService.Instance.Updated += Globals.HandleConfigUpdate;
 
                 builder.Services.AddSingleton(DBAService.Instance); //Not necessary as we can directly call the singleton.

@@ -30,8 +30,10 @@ namespace Haley.Utils {
                 switch (filter) {
                     case ResultFilter.FullList:
                     return dicList;
-                    case ResultFilter.FullListValueArray:
+                    case ResultFilter.FullListValues:
                     return dicList.SelectMany(p => p.Values.Select(q=>q)).ToList();
+                    case ResultFilter.FullListValueArray:
+                    return dicList.Select(p => p.Values.ToList()).ToList();
                     case ResultFilter.FirstDictionary:
                     return dicList.First();
                     case ResultFilter.FirstDictionaryValue:

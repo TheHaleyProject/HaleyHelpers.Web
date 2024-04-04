@@ -10,43 +10,17 @@ namespace Haley.Utils {
     public static class WebAppMaker {
 
         #region Utils
-        public static object GetFirst(this object input, ResultFilter filter = ResultFilter.FirstDictionaryValue) {
+        public static object ConvertDBAResult(this object input, ResultFilter filter = ResultFilter.FirstDictionaryValue) {
             //If we send error
             if (input is DBAError dbaerr) {
                 return new BadRequestObjectResult(dbaerr.ToString());
             }
-
             if (input is DBAResult dbres) {
                 return new OkObjectResult(dbres.ToString());
             }
-
             //If we send direct action result
             if (typeof(IActionResult).IsAssignableFrom(input.GetType())) return input;
-
-            if (filter == ResultFilter.None) return input; //Return result as is.
-
-            if (input is List<Dictionary<string, object>> dicList && dicList.Count() > 0) {
-
-                switch (filter) {
-                    case ResultFilter.FullList:
-                    return dicList;
-                    case ResultFilter.FullListValues:
-                    return dicList.SelectMany(p => p.Values.Select(q=>q)).ToList();
-                    case ResultFilter.FullListValueArray:
-                    return dicList.Select(p => p.Values.ToList()).ToList();
-                    case ResultFilter.FirstDictionary:
-                    return dicList.First();
-                    case ResultFilter.FirstDictionaryValue:
-                    if (dicList.First()?.First() != null) return dicList.First().First().Value;
-                    return dicList.First().First();
-                }
-            }
             return input;
-        }
-
-        public static async Task<object> GetFirst(this Task<object> input) {
-            var inpuobj = await input;
-            return inpuobj?.GetFirst();
         }
 
         #endregion

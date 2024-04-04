@@ -4,9 +4,9 @@ using Haley.Utils;
 
 namespace Haley.Models {
     public class DBAServiceUtil : IDBServiceUtil {
-        public Task<object> GetFirst(object input, ResultFilter filter) {
-            if (input == null) return null;
-            return Task.FromResult(input.GetFirst(filter));
+        public object Convert(object input) {
+            if (input == null) return input;
+            return WebAppMaker.ConvertDBAResult(input);
         }
     }
 }

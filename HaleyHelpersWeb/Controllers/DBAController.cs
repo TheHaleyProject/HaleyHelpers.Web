@@ -26,7 +26,8 @@ namespace ThreeBIM.Controllers {
                 Type = p.Entry.DBType.ToString(),
                 DB = p.Entry.DBName,
                 Schema = p.Entry.SchemaName,
-                Key = p.Entry.AdapterKey
+                Key = p.Entry.AdapterKey,
+                Host = DBAService.ParseConnectionString(p.Entry.ConnectionString,"host=")
             });
         }
     }

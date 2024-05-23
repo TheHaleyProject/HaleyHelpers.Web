@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Haley.Abstractions;
 
 namespace Haley.Utils {
 
@@ -54,7 +55,7 @@ namespace Haley.Utils {
                 DBAService.Instance.SetConfigurationRoot(allpaths?.ToArray()).Configure().SetServiceUtil(new DBAServiceUtil());
                 DBAService.Instance.Updated += Globals.HandleConfigUpdate;
 
-                builder.Services.AddSingleton(DBAService.Instance); //Not necessary as we can directly call the singleton.
+                builder.Services.AddSingleton<IDBService,DBAService>(provider => DBAService.Instance); //Not necessary as we can directly call the singleton.
 
                 //ADD BASIC SERVICES
                 builder.Services.AddControllers();

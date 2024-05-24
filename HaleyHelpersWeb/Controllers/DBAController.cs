@@ -1,13 +1,14 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Haley.Models;
+using Haley.Abstractions;
 
-namespace ThreeBIM.Controllers {
+namespace Haley {
 
     public class DBAController : ControllerBase {
-        private DBAService _dbservice;
+        private IDBService _dbservice;
 
-        public DBAController(DBAService dbservice) {
+        public DBAController(IDBService dbservice) {
             _dbservice = dbservice;
         }
 

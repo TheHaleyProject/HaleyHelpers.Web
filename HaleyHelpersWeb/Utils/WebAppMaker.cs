@@ -9,6 +9,7 @@ using Haley.Abstractions;
 namespace Haley.Utils {
 
     public static class WebAppMaker {
+        const string LOCALCORS = "localCors";
 
         #region Utils
         public static object ConvertDBAResult(this object input, ResultFilter filter = ResultFilter.FirstDictionaryValue) {
@@ -27,22 +28,20 @@ namespace Haley.Utils {
         #endregion
 
         public static JWTParameters JWTParams = Globals.JWTParams;
-        public static WebApplication GetAppWithJWT(string[] args, Action<WebApplicationBuilder> builderProcessor = null, Action<WebApplication> appProcessor = null, Func<string[]> jsonPathsProvider = null, bool swagger_in_production = false) {
-            return GetAppInternal(WebAppAuthMode.JWT,args,builderProcessor, appProcessor,jsonPathsProvider, swagger_in_production);
+
+        public static WebApplication GetApp(AppMakerInput input) {
+            if (input == null) return null;
+            return GetAppInternal(input);
         }
 
-        public static WebApplication GetApp(string[] args, Action<WebApplicationBuilder> builderProcessor = null, Action<WebApplication> appProcessor = null, Func<string[]> jsonPathsProvider = null, bool swagger_in_production = false) {
-            return GetAppInternal(WebAppAuthMode.None, args, builderProcessor, appProcessor, jsonPathsProvider, swagger_in_production);
-        }
-
-        static WebApplication GetAppInternal(WebAppAuthMode mode , string[] args, Action<WebApplicationBuilder> builderProcessor = null, Action<WebApplication> appProcessor = null, Func<string[]> jsonPathsProvider = null, bool swagger_in_production = false) {
+        static WebApplication GetAppInternal(AppMakerInput input) {
 
             try {
                 //SETUP THE DB ADAPTER DICTIONARY
-                var builder = WebApplication.CreateBuilder(args);
+                var builder = WebApplication.CreateBuilder(input.Args);
                 List<string> allpaths = new List<string>(); //Json paths.
-                if (jsonPathsProvider != null) {
-                    var jpaths = jsonPathsProvider.Invoke();
+                if (input.JsonPathsProvider != null) {
+                    var jpaths = input.JsonPathsProvider.Invoke();
                     if (jpaths != null && jpaths.Count() > 0) {
                         allpaths.AddRange(jpaths.Select(q => q.ToLower().Trim()));
                     }
@@ -60,7 +59,7 @@ namespace Haley.Utils {
                 //ADD BASIC SERVICES
                 builder.Services.AddControllers();
                 builder.Services.AddEndpointsApiExplorer();
-                if (builder.Environment.IsDevelopment() || swagger_in_production) {
+                if (builder.Environment.IsDevelopment() || input.IncludeSwaggerInProduction) {
                     builder.Services.AddSwaggerGen(gen => {
                         gen.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme {
                             Name = "Authorization",
@@ -87,7 +86,7 @@ namespace Haley.Utils {
 
 
                 //ADD AUTHENTICATION AND AUTHORIZATION
-                if (mode == WebAppAuthMode.JWT && Globals.JWTParams != null) {
+                if (input.AuthMode == WebAppAuthMode.JWT && Globals.JWTParams != null) {
                     builder.Services.AddAuthentication(p => {
                         p.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
                         p.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -109,25 +108,44 @@ namespace Haley.Utils {
                     });
                 }
 
-                if (mode != WebAppAuthMode.None) {
+                if (input.AuthMode != WebAppAuthMode.None) {
                     builder.Services.AddAuthorization();
                 }
 
+                //CORS
+                if (input.IncludeCors) {
+                    builder.Services.AddCors(o => o.AddPolicy(LOCALCORS, b => {
+                        b.AllowAnyMethod()
+                            .AllowAnyHeader()
+                            //.AllowAnyOrigin() //Not working with latest .NET 8+
+                            .SetIsOriginAllowed(origin => input.OriginFilter == null ? true : input.OriginFilter.Invoke(origin))
+                            //.SetIsOriginAllowed(origin => new Uri(origin).Host == "localhost") //Allow local host.
+                            .AllowCredentials()
+                            .WithExposedHeaders("Content-Disposition"); // params string[]
+                    }));
+                }
+
                 //INVOKE USER DEFINED SERVICE ADDITION
-                builderProcessor?.Invoke(builder);
+                input.BuilderProcessor?.Invoke(builder);
                 //builder.Logging.ClearProviders(); //only for production.
 
                 var app = builder.Build();
 
-                // INVOKE USER DEFINED SERVICE USES FOR THE APP
-                appProcessor?.Invoke(app);
+                if (input.IncludeCors) {
+                    app.UseCors(LOCALCORS);
+                }
+                    // INVOKE USER DEFINED SERVICE USES FOR THE APP
+                    input.AppProcessor?.Invoke(app);
 
-                if (builder.Environment.IsDevelopment() || swagger_in_production) {
+                if (builder.Environment.IsDevelopment() || input.IncludeSwaggerInProduction) {
                     app.UseSwagger();
                     app.UseSwaggerUI();
                 }
 
-                app.UseHttpsRedirection();
+                if (input.HttpsRedirection) {
+                    app.UseHttpsRedirection();
+                }
+
                 app.UseAuthentication();
                 app.UseAuthorization();
                 app.MapControllers();

@@ -1,5 +1,5 @@
 ﻿namespace Haley.Enums {
-    internal enum WebAppAuthMode {
+    public enum WebAppAuthMode {
         None = 0,
         JWT = 1
     }

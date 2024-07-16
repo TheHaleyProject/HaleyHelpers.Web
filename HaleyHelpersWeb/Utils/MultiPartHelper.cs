@@ -99,7 +99,7 @@ namespace Haley.Utils {
                 //If we are dealing with file, then we need a valid storage service.
                 if (mpuInput.StorageService == null) throw new ArgumentNullException(nameof(MultiPartUploadInput.StorageService));
 
-                StorageInput input = new StorageInput() { PreferId = mpuInput.PreferId, FileName = fileSection.FileName };
+                StorageInput input = new StorageInput() { PreferId = mpuInput.PreferId, FileName = fileSection.FileName, RootDirName = mpuInput.RootDir };
 
                 if (mpuInput.PreferId && input.Id < 1) {
                     //PREFERENCE 1 : If we have  a parse from Name, try to use it.

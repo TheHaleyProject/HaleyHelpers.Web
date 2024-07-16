@@ -87,7 +87,7 @@ namespace Haley.Utils {
 
                 if (string.Equals(value, "undefined",
                     StringComparison.OrdinalIgnoreCase)) {
-                    value = string.Empty;
+                    value = string.Empty; //In case we are receiving input from 
                 }
                 return (key, value);
             }

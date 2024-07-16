@@ -14,6 +14,7 @@ namespace Haley.Models {
         public IStorageService StorageService { get; set; }
         public bool PreferId { get; set; } = true;
         public bool ParseIdFromKey { get; set; }
+        public string RootDir { get; set; }
         public Func<string,string,long> IdGenerator { get; set; }
         public Func<KeyValueAccumulator,bool> DataHandler { get; set; }
         public int BufferSize { get; set; } = 8192; //8KB

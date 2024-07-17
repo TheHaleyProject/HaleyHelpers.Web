@@ -8,10 +8,10 @@ using System.Buffers;
 using System.Collections.ObjectModel;
 
 namespace Haley.Models {
-    public class MultipartResult : Collection<MultipartInfo>, IActionResult {
+    public class MultipartResponse : Collection<MultipartResponseInfo>, IActionResult {
         private readonly MultipartContent _internalContent;
 
-        public MultipartResult(string subtype = "byteranges", string boundary = null) {
+        public MultipartResponse(string subtype = "byteranges", string boundary = null) {
             if (boundary == null) {
                 this._internalContent = new MultipartContent(subtype);
             } else {

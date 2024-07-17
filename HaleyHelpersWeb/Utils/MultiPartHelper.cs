@@ -5,21 +5,19 @@ using Haley.Abstractions;
 using Microsoft.Net.Http.Headers;
 using Microsoft.AspNetCore.Http.Features;
 using Azure.Core;
-using static System.Collections.Specialized.BitVector32;
-using System.Net.Mime;
 using System.Text;
 
 namespace Haley.Utils {
     public static class MultiPartHelper {
         static readonly FormOptions _defaultFormOptions = new FormOptions();
 
-        public static async Task<StorageOutput> UploadFileAsync(HttpRequest request, MultiPartUploadInput mpuInput) { 
+        public static async Task<StorageResponse> UploadFileAsync(HttpRequest request, VaultRequestHelper mpuInput) { 
             return await UploadFileAsync(request.Body,request.ContentType,mpuInput);
         }
 
-        public static async Task<StorageOutput> UploadFileAsync(Stream fileStream, string contentType,MultiPartUploadInput mpuInput) {
-            if (mpuInput == null) throw new ArgumentException(nameof(MultiPartUploadInput));
-            if (mpuInput.StorageService == null) throw new ArgumentNullException(nameof(MultiPartUploadInput.StorageService));
+        public static async Task<StorageResponse> UploadFileAsync(Stream fileStream, string contentType,VaultRequestHelper mpuInput) {
+            if (mpuInput == null) throw new ArgumentException(nameof(VaultRequestHelper));
+            if (mpuInput.Service == null) throw new ArgumentNullException(nameof(VaultRequestHelper.Service));
 
             if (!IsMultipartContentType(contentType)) {
                 throw new Exception($"Expected a multipart request, but got {contentType}");
@@ -30,7 +28,7 @@ namespace Haley.Utils {
             var section = await multipartReader.ReadNextSectionAsync();
 
             var formAccumulator = new KeyValueAccumulator();
-            StorageOutput result = new StorageOutput();
+            StorageResponse result = new StorageResponse();
             long sizeUploadedInBytes = 0;
 
             while (section != null) {
@@ -43,7 +41,7 @@ namespace Haley.Utils {
                         var saveSummary = await StoreFileAsync(section,mpuInput);
                         if (saveSummary == null) continue;
                         if (saveSummary.Status) {
-                            result.StoredCount++;
+                            result.Passed++;
                             sizeUploadedInBytes += saveSummary.Size;
                             result.StoredFilesInfo.TryAdd(saveSummary.FileName, saveSummary); //what if the extensions differ for different files?
                         } else {
@@ -63,7 +61,7 @@ namespace Haley.Utils {
             }
             if (formAccumulator.KeyCount < 1) result.Status = true; //need not worry about data handling. 
             if (formAccumulator.KeyCount > 0) {
-                if (mpuInput.DataHandler == null) throw new ArgumentNullException($@"When parameters are present, {nameof(MultiPartUploadInput.DataHandler)} cannot be null");
+                if (mpuInput.DataHandler == null) throw new ArgumentNullException($@"When parameters are present, {nameof(VaultRequestHelper.DataHandler)} cannot be null");
                 result.Status = mpuInput.DataHandler.Invoke(formAccumulator);
             }
             result.TotalSizeUploaded = sizeUploadedInBytes.ToFileSize(false);
@@ -93,13 +91,13 @@ namespace Haley.Utils {
             }
         }
 
-            static async Task<FileSaveSummary> StoreFileAsync(MultipartSection section,MultiPartUploadInput mpuInput) {
+            static async Task<FileStorageSummary> StoreFileAsync(MultipartSection section,VaultRequestHelper mpuInput) {
             var fileSection = section.AsFileSection();
             if (fileSection != null) {
                 //If we are dealing with file, then we need a valid storage service.
-                if (mpuInput.StorageService == null) throw new ArgumentNullException(nameof(MultiPartUploadInput.StorageService));
+                if (mpuInput.Service == null) throw new ArgumentNullException(nameof(VaultRequestHelper.Service));
 
-                StorageInput input = new StorageInput() { PreferId = mpuInput.PreferId, FileName = fileSection.FileName, RootDirName = mpuInput.RootDir };
+                StorageRequest input = new StorageRequest() { PreferNumericName = mpuInput.PreferId, FileName = fileSection.FileName, RootDirName = mpuInput.RootDir };
 
                 if (mpuInput.PreferId && input.Id < 1) {
                     //PREFERENCE 1 : If we have  a parse from Name, try to use it.
@@ -110,12 +108,12 @@ namespace Haley.Utils {
 
                     //PREFERENCE 2 : Since we are creating the Storage input inside this method, obviously, the input id is less than 1.
                     if (input.Id < 1) {
-                        if (mpuInput.IdGenerator == null) throw new ArgumentNullException($@"When {nameof(MultiPartUploadInput.PreferId)} is true, {nameof(MultiPartUploadInput.IdGenerator)} cannot be null");
+                        if (mpuInput.IdGenerator == null) throw new ArgumentNullException($@"When {nameof(VaultRequestHelper.PreferId)} is true, {nameof(VaultRequestHelper.IdGenerator)} cannot be null");
                         input.Id = mpuInput.IdGenerator?.Invoke(fileSection.Name, fileSection.FileName) ?? 0;
                     }
                 }
                 
-                var saveSummary = await mpuInput.StorageService!.Upload(input, fileSection.FileStream, mpuInput.BufferSize);
+                var saveSummary = await mpuInput.Service!.Upload(input, fileSection.FileStream, mpuInput.BufferSize);
                 return saveSummary;
             }
             return null; //don't return a value.

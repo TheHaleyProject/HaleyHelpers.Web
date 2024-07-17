@@ -14,11 +14,11 @@ using Haley.Enums;
 namespace Haley.Models {
     public class VaultRequestWrite : VaultRequestBase {
         [FromQuery(Name = "src")]
-        public bool SourceFromKey { get; set; } = true; //Or Source from value / FileName
+        public FileNameSource Source { get; set; } = FileNameSource.Id; //Or Source from value / FileName
         [FromQuery(Name ="fh")]
-        public bool ForceHash { get; set; } = false; //If not do not parse. For hash if parse fails, generate hash.
-        [FromQuery(Name = "prefNum")]
-        public bool PreferNumeric { get; set; } = true; //Or else go for hash
+        public bool ForcedHash { get; set; } = false; //If not do not parse. For hash if parse fails, generate hash.
+        [FromQuery(Name = "pref")]
+        public FileNamePreference Preference { get; set; } = FileNamePreference.Number; //Or else go for hash
         public VaultRequestWrite() { }
     }
 }

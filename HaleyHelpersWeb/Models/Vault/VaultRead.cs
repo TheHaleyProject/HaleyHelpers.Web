@@ -11,12 +11,12 @@ using Microsoft.AspNetCore.WebUtilities;
 using System.ComponentModel.DataAnnotations;
 
 namespace Haley.Models {
-    public class VaultRequestRead : VaultRequestBase {
+    public class VaultRead : VaultRequestBase {
         [Required]
         [FromQuery(Name = "tn")]
         public string TargetName { get; set; }
         [FromQuery(Name ="fn")]
         public string FileNameToSave { get; set; }
-        public VaultRequestRead() { }
+        public VaultRead() { }
     }
 }

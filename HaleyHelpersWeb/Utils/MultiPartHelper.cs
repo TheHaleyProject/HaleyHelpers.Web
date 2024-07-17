@@ -11,20 +11,20 @@ namespace Haley.Utils {
     public static class MultiPartHelper {
         static readonly FormOptions _defaultFormOptions = new FormOptions();
 
-        public static async Task<StorageResponse> UploadFileAsync(HttpRequest request, VaultRequestHelper mpuInput) { 
-            return await UploadFileAsync(request.Body,request.ContentType,mpuInput);
+        public static async Task<StorageResponse> UploadFileAsync(HttpRequest request, VaultWriteWrapper wrapper) { 
+            return await UploadFileAsync(request.Body,request.ContentType,wrapper);
         }
 
-        public static async Task<StorageResponse> UploadFileAsync(Stream fileStream, string contentType,VaultRequestHelper mpuInput) {
-            if (mpuInput == null) throw new ArgumentException(nameof(VaultRequestHelper));
-            if (mpuInput.Service == null) throw new ArgumentNullException(nameof(VaultRequestHelper.Service));
+        public static async Task<StorageResponse> UploadFileAsync(Stream fileStream, string contentType, VaultWriteWrapper wrapper) {
+            if (wrapper == null) throw new ArgumentException(nameof(VaultWriteWrapper));
+            if (wrapper.Service == null) throw new ArgumentNullException(nameof(VaultWriteWrapper.Service));
 
             if (!IsMultipartContentType(contentType)) {
                 throw new Exception($"Expected a multipart request, but got {contentType}");
             }
 
             var boundary = GetBoundary(MediaTypeHeaderValue.Parse(contentType), _defaultFormOptions.MultipartBoundaryLengthLimit);
-            var multipartReader = new MultipartReader(boundary, fileStream,mpuInput.BufferSize);
+            var multipartReader = new MultipartReader(boundary, fileStream,wrapper.BufferSize);
             var section = await multipartReader.ReadNextSectionAsync();
 
             var formAccumulator = new KeyValueAccumulator();
@@ -38,15 +38,15 @@ namespace Haley.Utils {
                 if (hasDispositionHeader && contentDisposition != null) {
                     //Check if it is file disposition or data disposition
                     if (HasFileContentDisposition(contentDisposition)) {
-                        var saveSummary = await StoreFileAsync(section,mpuInput);
+                        var saveSummary = await StoreFileAsync(section,wrapper);
                         if (saveSummary == null) continue;
                         if (saveSummary.Status) {
                             result.Passed++;
                             sizeUploadedInBytes += saveSummary.Size;
-                            result.StoredFilesInfo.TryAdd(saveSummary.FileName, saveSummary); //what if the extensions differ for different files?
+                            result.PassedSummary.TryAdd(saveSummary.RawName , saveSummary); //what if the extensions differ for different files?
                         } else {
-                            result.FailedCount++;
-                            result.FailedFilesInfo.Add(saveSummary.FileName, saveSummary);
+                            result.Failed++;
+                            result.FailedSummary.Add(saveSummary.RawName, saveSummary);
                         }
 
                     } else if (HasDataContentDisposition(contentDisposition)){
@@ -61,8 +61,8 @@ namespace Haley.Utils {
             }
             if (formAccumulator.KeyCount < 1) result.Status = true; //need not worry about data handling. 
             if (formAccumulator.KeyCount > 0) {
-                if (mpuInput.DataHandler == null) throw new ArgumentNullException($@"When parameters are present, {nameof(VaultRequestHelper.DataHandler)} cannot be null");
-                result.Status = mpuInput.DataHandler.Invoke(formAccumulator);
+                if (wrapper.DataHandler == null) throw new ArgumentNullException($@"When parameters are present, {nameof(wrapper.DataHandler)} cannot be null");
+                result.Status = wrapper.DataHandler.Invoke(formAccumulator);
             }
             result.TotalSizeUploaded = sizeUploadedInBytes.ToFileSize(false);
             return result;
@@ -91,29 +91,24 @@ namespace Haley.Utils {
             }
         }
 
-            static async Task<FileStorageSummary> StoreFileAsync(MultipartSection section,VaultRequestHelper mpuInput) {
+            static async Task<FileStorageSummary> StoreFileAsync(MultipartSection section, VaultWriteWrapper wrapper) {
             var fileSection = section.AsFileSection();
             if (fileSection != null) {
                 //If we are dealing with file, then we need a valid storage service.
-                if (mpuInput.Service == null) throw new ArgumentNullException(nameof(VaultRequestHelper.Service));
+                if (wrapper.Service == null) throw new ArgumentNullException(nameof(VaultWriteWrapper.Service));
 
-                StorageRequest input = new StorageRequest() { PreferNumericName = mpuInput.PreferId, FileName = fileSection.FileName, RootDirName = mpuInput.RootDir };
+                StorageRequest input = new StorageRequest();
+                wrapper.MapProperties(input); //Fill rootdir and other basic properties
+                input.Id = fileSection.Name;
+                input.RawName = fileSection.FileName;
+                input.IsFolder = false; //as we are uploading a file.
 
-                if (mpuInput.PreferId && input.Id < 1) {
-                    //PREFERENCE 1 : If we have  a parse from Name, try to use it.
-                    var fname = Path.GetFileNameWithoutExtension(fileSection.Name); //Name obviously will not contain extension. Only FileName has extension.
-                    if (long.TryParse(fname, out long fnameId)) {
-                        input.Id = fnameId; //id is obtained.
-                    }
-
-                    //PREFERENCE 2 : Since we are creating the Storage input inside this method, obviously, the input id is less than 1.
-                    if (input.Id < 1) {
-                        if (mpuInput.IdGenerator == null) throw new ArgumentNullException($@"When {nameof(VaultRequestHelper.PreferId)} is true, {nameof(VaultRequestHelper.IdGenerator)} cannot be null");
-                        input.Id = mpuInput.IdGenerator?.Invoke(fileSection.Name, fileSection.FileName) ?? 0;
-                    }
+                //PREFERENCE : if the file name generator is present, then it means, we need to override the default mechanism.
+                if (wrapper.FileNameGenerator != null) {
+                    input.TargetName = wrapper.FileNameGenerator.Invoke((input.Id, input.RawName, wrapper));
                 }
                 
-                var saveSummary = await mpuInput.Service!.Upload(input, fileSection.FileStream, mpuInput.BufferSize);
+                var saveSummary = await wrapper.Service!.Upload(input, fileSection.FileStream, wrapper.BufferSize);
                 return saveSummary;
             }
             return null; //don't return a value.

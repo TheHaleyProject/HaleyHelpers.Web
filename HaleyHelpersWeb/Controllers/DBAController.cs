@@ -1,9 +1,8 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Haley.Models;
 using Haley.Abstractions;
 
-namespace Haley {
+namespace Haley.Models {
 
     public class DBAController : ControllerBase {
         private IDBService _dbservice;

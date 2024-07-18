@@ -16,7 +16,7 @@ namespace Haley.Models {
         [FromQuery(Name = "tn")]
         public string TargetName { get; set; }
         [FromQuery(Name ="fn")]
-        public string FileNameToSave { get; set; }
+        public string? FileNameToSave { get; set; }
         public VaultRead() { }
     }
 }

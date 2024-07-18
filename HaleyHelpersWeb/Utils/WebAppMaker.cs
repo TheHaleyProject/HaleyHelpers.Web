@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Haley.Abstractions;
+using System.Text.Json.Serialization;
 
 namespace Haley.Utils {
 
@@ -57,7 +58,7 @@ namespace Haley.Utils {
                 builder.Services.AddSingleton<IDBService,DBAService>(provider => DBAService.Instance ); //Not necessary as we can directly call the singleton.
 
                 //ADD BASIC SERVICES
-                builder.Services.AddControllers();
+                builder.Services.AddControllers().AddJsonOptions(o=> { o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()); });
                 builder.Services.AddEndpointsApiExplorer();
                 if (builder.Environment.IsDevelopment() || input.IncludeSwaggerInProduction) {
                     builder.Services.AddSwaggerGen(gen => {

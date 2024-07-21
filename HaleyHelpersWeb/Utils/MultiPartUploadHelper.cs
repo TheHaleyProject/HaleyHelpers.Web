@@ -177,7 +177,7 @@ namespace Haley.Utils {
                     rinput.RepoInfo.TargetName = repoWrite.RepoName; //Repository Target Name
                     rinput.ResolveMode = repoWrite.ResolveMode;
                     rinput.Path = fileSection.Name; //this is path.
-                    rinput.Path.SanitizeStoragePath();
+                    rinput.Path = rinput.Path.SanitizeStoragePath();
                     rinput.Name = fileSection.FileName; //this is the file to save.
                     
                     saveSummary = await wrapper.Service!.UploadToRepo(rinput, fileSection.FileStream, wrapper.BufferSize);

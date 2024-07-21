@@ -12,12 +12,13 @@ using System.ComponentModel.DataAnnotations;
 using Haley.Enums;
 
 namespace Haley.Models {
-    public class VaultFolderRead : VaultRequestBase {
+    public class RepoRead : RepoBase {
         //[FromQuery(Name = "src")]
         //public StorageNameSource Source { get; set; } = StorageNameSource.Id; //Or Source from value / FileName
-        [FromQuery(Name = "n")]
-        [Required]
-        public string Name { get; set; }
-        public VaultFolderRead() { }
+        [FromQuery(Name = "tn")]
+        public string? TargetName { get; set; }
+        [FromQuery(Name ="path")]
+        public string? Path { get; set; }   
+        public RepoRead() { }
     }
 }

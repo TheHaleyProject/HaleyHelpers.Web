@@ -12,11 +12,11 @@ using System.ComponentModel.DataAnnotations;
 using Haley.Enums;
 
 namespace Haley.Models {
-    public class VaultFolderWrite : VaultFolderRead {
+    public class RepoCreate : RepoBase {
         [FromQuery(Name ="hm")]
         public StorageNameHashMode HashMode { get; set; } = StorageNameHashMode.ParseOrCreate;
         [FromQuery(Name = "pref")]
         public StorageNamePreference Preference { get; set; } = StorageNamePreference.Number; //Or else go for hash
-        public VaultFolderWrite() { }
+        public RepoCreate() { }
     }
 }

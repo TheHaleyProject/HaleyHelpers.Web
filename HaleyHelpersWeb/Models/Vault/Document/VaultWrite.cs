@@ -19,6 +19,8 @@ namespace Haley.Models {
         public StorageNameHashMode HashMode { get; set; } = StorageNameHashMode.ParseOrCreate;
         [FromQuery(Name = "pref")]
         public StorageNamePreference Preference { get; set; } = StorageNamePreference.Number; //Or else go for hash
+        [FromQuery(Name = "rm")]
+        public StorageFileConflict ResolveMode { get; set; } = StorageFileConflict.ReturnError;
         public VaultWrite() { }
     }
 }

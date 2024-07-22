@@ -173,7 +173,7 @@ namespace Haley.Utils {
                     if (repoWrite == null) throw new ArgumentNullException($@"For repo mode, Wrapper needs a valid {nameof(RepoWrite)} object");
                     //Upload to repository mode.
                     RepoStorageRequest rinput = new RepoStorageRequest();
-                    rinput.RepoInfo.RootDir = repoWrite.RootDir;
+                    rinput.RepoInfo.Container = repoWrite.Container;
                     rinput.RepoInfo.TargetName = repoWrite.RepoName; //Repository Target Name
                     rinput.ResolveMode = repoWrite.ResolveMode;
                     rinput.Path = fileSection.Name; //this is path.

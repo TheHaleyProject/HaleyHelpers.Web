@@ -15,7 +15,14 @@ namespace Haley.Models {
         [Route("Refresh")]
         [HttpGet]
         public async Task RefreshConfigs() {
-            _dbservice.UpdateAdapter(); //this will generate a new Configuration root for all the already existing data and then update the connections accordingly.
+            _dbservice?.UpdateAdapter(); //this will generate a new Configuration root for all the already existing data and then update the connections accordingly.
+        }
+
+        [AllowAnonymous]
+        [Route("Reload")]
+        [HttpGet]
+        public async Task ReloadConfiguration() {
+            _dbservice?.GetConfigurationRoot(true); //this will generate a new Configuration root for all the already existing data and then update the connections accordingly.
         }
 
         [AllowAnonymous]

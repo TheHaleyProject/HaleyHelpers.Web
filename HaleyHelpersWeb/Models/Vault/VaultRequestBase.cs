@@ -13,7 +13,7 @@ using System.ComponentModel.DataAnnotations;
 namespace Haley.Models {
     public class VaultRequestBase {
         [FromQuery(Name ="cn")]
-        public string? Container { get; set; } //Sometimes we dont' want any root dir to be specified. We direclty start uploading.
+        public string? RootDir { get; set; } //Sometimes we dont' want any root dir to be specified. We direclty start uploading.
         [Required]
         [FromQuery(Name = "key")]
         public string ServiceKey { get; set; }

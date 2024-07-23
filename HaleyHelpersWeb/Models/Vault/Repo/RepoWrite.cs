@@ -16,7 +16,7 @@ namespace Haley.Models {
         //[FromQuery(Name = "src")]
         //public StorageNameSource Source { get; set; } = StorageNameSource.Id; //Or Source from value / FileName
         [FromQuery(Name = "rm")]
-        public StorageFileConflict ResolveMode { get; set; } = StorageFileConflict.ReturnError;
+        public ObjectExistsResolveMode ResolveMode { get; set; } = ObjectExistsResolveMode.ReturnError;
         public RepoWrite() { }
     }
 }

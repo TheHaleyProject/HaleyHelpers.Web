@@ -20,7 +20,7 @@ namespace Haley.Models {
         [FromQuery(Name = "pref")]
         public StorageNamePreference Preference { get; set; } = StorageNamePreference.Number; //Or else go for hash
         [FromQuery(Name = "rm")]
-        public StorageFileConflict ResolveMode { get; set; } = StorageFileConflict.ReturnError;
+        public ObjectExistsResolveMode ResolveMode { get; set; } = ObjectExistsResolveMode.ReturnError;
         public VaultWrite() { }
     }
 }

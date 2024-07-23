@@ -13,11 +13,11 @@ namespace Haley.Utils {
     public static class MultiPartUploadHelper {
         private static readonly FormOptions _defaultFormOptions = new FormOptions();
 
-        public static async Task<StorageResponse> UploadFileAsync(HttpRequest request, VaultRequestWrapper wrapper) {
+        public static async Task<SummaryResponse> UploadFileAsync(HttpRequest request, VaultRequestWrapper wrapper) {
             return await UploadFileAsync(request.Body, request.ContentType, wrapper);
         }
 
-        public static async Task<StorageResponse> UploadFileAsync(Stream fileStream, string contentType, VaultRequestWrapper wrapper) {
+        public static async Task<SummaryResponse> UploadFileAsync(Stream fileStream, string contentType, VaultRequestWrapper wrapper) {
             if (wrapper == null) throw new ArgumentException(nameof(VaultRequestWrapper));
             if (wrapper.Service == null) throw new ArgumentNullException(nameof(VaultRequestWrapper.Service));
 
@@ -30,7 +30,7 @@ namespace Haley.Utils {
             var section = await multipartReader.ReadNextSectionAsync();
 
             var formAccumulator = new KeyValueAccumulator();
-            StorageResponse result = new StorageResponse();
+            SummaryResponse result = new SummaryResponse();
             long sizeUploadedInBytes = 0;
 
             while (section != null) {
@@ -43,13 +43,13 @@ namespace Haley.Utils {
                         if (saveSummary != null && saveSummary.Status) {
                             result.Passed++;
                             sizeUploadedInBytes += saveSummary.Size;
-                            if (!string.IsNullOrWhiteSpace(saveSummary.RawName)) {
-                                result.PassedSummary.TryAdd(saveSummary.RawName, saveSummary); //what if the extensions differ for different files?
+                            if (!string.IsNullOrWhiteSpace(saveSummary.ObjectRawName)) {
+                                result.PassedSummary.TryAdd(saveSummary.ObjectRawName, saveSummary); //what if the extensions differ for different files?
                             }
                         } else {
                             result.Failed++;
-                            if (!string.IsNullOrWhiteSpace(saveSummary?.RawName)) {
-                                result.FailedSummary.Add(saveSummary.RawName, saveSummary);
+                            if (!string.IsNullOrWhiteSpace(saveSummary?.ObjectRawName)) {
+                                result.FailedSummary.Add(saveSummary.ObjectRawName, saveSummary);
                             }
                         }
                     } else if (HasDataContentDisposition(contentDisposition)) {
@@ -154,7 +154,7 @@ namespace Haley.Utils {
 
                 FileStorageSummary saveSummary = new FileStorageSummary() { Status = false};
                 if (!wrapper.RepoMode) {
-                    StorageRequest input = new StorageRequest();
+                    ObjectWriteRequest input = new ObjectWriteRequest();
                     var vaultWrite = (wrapper.Request as VaultWrite);
                     if (vaultWrite == null) throw new ArgumentNullException($@"For non-repo mode, Wrapper needs a valid {nameof(VaultWrite)} object");
                     vaultWrite.MapProperties(input);
@@ -164,7 +164,7 @@ namespace Haley.Utils {
 
                     //PREFERENCE : if the file name generator is present, then it means, we need to override the default mechanism.
                     if (wrapper.FileNameGenerator != null) {
-                        input.TargetName = wrapper.FileNameGenerator.Invoke((input.Id, input.RawName, wrapper.Request));
+                        input.Name = wrapper.FileNameGenerator.Invoke((input.Id, input.RawName, wrapper.Request));
                     }
                     //return new FileStorageSummary() { Status = false };
                     saveSummary = await wrapper.Service!.Upload(input, fileSection.FileStream, wrapper.BufferSize);
@@ -173,8 +173,8 @@ namespace Haley.Utils {
                     if (repoWrite == null) throw new ArgumentNullException($@"For repo mode, Wrapper needs a valid {nameof(RepoWrite)} object");
                     //Upload to repository mode.
                     RepoStorageRequest rinput = new RepoStorageRequest();
-                    rinput.RepoInfo.Container = repoWrite.Container;
-                    rinput.RepoInfo.TargetName = repoWrite.RepoName; //Repository Target Name
+                    rinput.RepoInfo.Container = repoWrite.RootDir;
+                    rinput.RepoInfo.ObjectSavedName = repoWrite.RepoName; //Repository Target Name
                     rinput.ResolveMode = repoWrite.ResolveMode;
                     rinput.Path = fileSection.Name; //this is path.
                     rinput.Path = rinput.Path.SanitizeStoragePath();
@@ -182,8 +182,8 @@ namespace Haley.Utils {
                     
                     saveSummary = await wrapper.Service!.UploadToRepo(rinput, fileSection.FileStream, wrapper.BufferSize);
                 }
-                if (string.IsNullOrWhiteSpace(saveSummary.RawName)) {
-                    saveSummary.RawName = fileSection.FileName;
+                if (string.IsNullOrWhiteSpace(saveSummary.ObjectRawName)) {
+                    saveSummary.ObjectRawName = fileSection.FileName;
                 }
                 return saveSummary;
             }

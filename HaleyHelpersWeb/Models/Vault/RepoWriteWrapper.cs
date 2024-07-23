@@ -6,7 +6,7 @@ using Haley.Utils;
 namespace Haley.Models {
     public class RepoWriteWrapper : VaultRequestWrapper {
         public string RepoName { get; set; }
-        public RepoWriteWrapper(IStorageManager storage, VaultWrite input):base(storage,input) {
+        public RepoWriteWrapper(IVaultManager storage, VaultWrite input):base(storage,input) {
             
         }
     }

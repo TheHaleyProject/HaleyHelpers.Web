@@ -4,10 +4,10 @@ using Haley.Abstractions;
 
 namespace Haley.Models {
 
-    public class DBAControllerBase : ControllerBase {
+    public class DBABase : ControllerBase {
         private IDBService _dbservice;
 
-        public DBAControllerBase(IDBService dbservice) {
+        public DBABase(IDBService dbservice) {
             _dbservice = dbservice;
         }
 

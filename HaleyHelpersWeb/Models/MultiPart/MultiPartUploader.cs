@@ -66,11 +66,18 @@ namespace Haley.Models {
                             if (reqClone == null) throw new ArgumentException($@"Unable to successfully clone the {nameof(IObjectUploadRequest)} object.");
                             //We fill the input request object.
                             //PathMaker is reference type.
+                            //Lets make a deep clone of the PathMaker as it is not a primitive type and clone might not work properly
                             reqClone.FileStream = fsection.FileStream;
                             reqClone.ObjectRawName = fsection.FileName;
                             reqClone.ObjectId = fsection.Name;
 
-                            var saveSummary = await _fileHandler(reqClone);
+                            var saveSummary = new ObjectCreateResponse() { Status = false };
+                            try {
+                                saveSummary = await _fileHandler(reqClone);
+                            } catch (Exception ex) {
+                                saveSummary.Message = ex.Message;
+
+                            }
                             if (saveSummary != null && saveSummary.Status) {
                                 result.Passed++;
                                 sizeUploadedInBytes += saveSummary.Size;
@@ -79,6 +86,7 @@ namespace Haley.Models {
                                 result.Failed++;
                                 result.FailedObjects.Add(saveSummary);
                             }
+
                         }
                     }
                     else if (HasDataContentDisposition(contentDisposition))

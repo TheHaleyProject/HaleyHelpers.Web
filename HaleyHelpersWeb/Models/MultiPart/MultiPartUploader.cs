@@ -60,12 +60,17 @@ namespace Haley.Models {
 
                         var fsection = section.AsFileSection();
                         if (fsection != null) {
+                            //DO NOT SEND SAME REQUEST AGAIN AND AGAIN. 
+                            // CLONE AND SEND.
+                            var reqClone = upRequest.Clone() as IObjectUploadRequest;
+                            if (reqClone == null) throw new ArgumentException($@"Unable to successfully clone the {nameof(IObjectUploadRequest)} object.");
                             //We fill the input request object.
-                            upRequest.FileStream = fsection.FileStream;
-                            upRequest.ObjectRawName = fsection.FileName;
-                            upRequest.ObjectId = fsection.Name;
+                            //PathMaker is reference type.
+                            reqClone.FileStream = fsection.FileStream;
+                            reqClone.ObjectRawName = fsection.FileName;
+                            reqClone.ObjectId = fsection.Name;
 
-                            var saveSummary = await _fileHandler(upRequest);
+                            var saveSummary = await _fileHandler(reqClone);
                             if (saveSummary != null && saveSummary.Status) {
                                 result.Passed++;
                                 sizeUploadedInBytes += saveSummary.Size;

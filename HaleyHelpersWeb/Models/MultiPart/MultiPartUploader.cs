@@ -68,8 +68,8 @@ namespace Haley.Models {
                             //PathMaker is reference type.
                             //Lets make a deep clone of the PathMaker as it is not a primitive type and clone might not work properly
                             reqClone.FileStream = fsection.FileStream;
-                            reqClone.ObjectRawName = fsection.FileName;
-                            reqClone.ObjectId = fsection.Name;
+                            reqClone.ObjectRawName = fsection.FileName; //Not sure what to do with this.
+                            reqClone.ObjectId = fsection.Name; //For repo mode, this becomes the path.
 
                             var saveSummary = new ObjectCreateResponse() { Status = false };
                             try {

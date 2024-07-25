@@ -12,22 +12,6 @@ namespace Haley.Utils {
     public static class WebAppMaker {
         const string LOCALCORS = "localCors";
 
-        #region Utils
-        public static object ConvertDBAResult(this object input, ResultFilter filter = ResultFilter.FirstDictionaryValue) {
-            //If we send error
-            if (input is DBAError dbaerr) {
-                return new BadRequestObjectResult(dbaerr.ToString());
-            }
-            if (input is DBAResult dbres) {
-                return new OkObjectResult(dbres.ToString());
-            }
-            //If we send direct action result
-            if (typeof(IActionResult).IsAssignableFrom(input.GetType())) return input;
-            return input;
-        }
-
-        #endregion
-
         public static JWTParameters JWTParams = Globals.JWTParams;
 
         public static WebApplication GetApp(AppMakerInput input) {

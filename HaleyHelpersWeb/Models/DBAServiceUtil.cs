@@ -6,7 +6,7 @@ namespace Haley.Models {
     public class DBAServiceUtil : IDBServiceUtil {
         public object Convert(object input) {
             if (input == null) return input;
-            return WebAppMaker.ConvertDBAResult(input);
+            return WebHelperUtils.ConvertDBAResult(input);
         }
     }
 }

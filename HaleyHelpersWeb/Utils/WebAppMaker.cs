@@ -6,6 +6,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Haley.Abstractions;
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.HttpOverrides;
 
 namespace Haley.Utils {
 
@@ -110,11 +111,29 @@ namespace Haley.Utils {
                     }));
                 }
 
+                //HEADERS FORWARD
+                if (input.UseForwardedHeaders) {
+                    builder.Services.Configure<ForwardedHeadersOptions>(options =>
+                    {
+                        options.ForwardedHeaders = ForwardedHeaders.XForwardedFor |
+                            ForwardedHeaders.XForwardedProto;
+                        // Only loopback proxies are allowed by default.
+                        // Clear that restriction because forwarders are enabled by explicit 
+                        // configuration.
+                        options.KnownNetworks.Clear();
+                        options.KnownProxies.Clear();
+                    });
+                }
+
                 //INVOKE USER DEFINED SERVICE ADDITION
                 input.BuilderProcessor?.Invoke(builder);
                 //builder.Logging.ClearProviders(); //only for production.
 
                 var app = builder.Build();
+
+                if (input.UseForwardedHeaders) {
+                    app.UseForwardedHeaders();
+                }
 
                 if (input.IncludeCors) {
                     app.UseCors(LOCALCORS);

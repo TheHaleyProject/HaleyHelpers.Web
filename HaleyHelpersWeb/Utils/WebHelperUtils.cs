@@ -19,20 +19,29 @@ namespace Haley.Utils {
             return input;
         }
 
-        public static string GetClientIP(this HttpRequest request) {
+        public static string GetClientIP(this HttpContext context) {
             try {
-                string result = string.Empty;
-                var host = request.Host; //Request Host
-                if (host.HasValue) {
-                    if (host.Host == "localhost") return host.Host;
-                    IPAddress ipAddress = IPAddress.Parse(host.Host);
-                    IPHostEntry ipHostEntry = Dns.GetHostEntry(ipAddress);
-                }
-
-                return result;
+                return context.Connection.RemoteIpAddress?.ToString();
             } catch (Exception) {
-                return null;
+                return string.Empty;
             }
+        }
+
+        public static string GenerateIPInfoCookieValue(this HttpContext context, string salt) {
+            var ip = context.GetClientIP();
+            if (string.IsNullOrWhiteSpace(ip)) throw new ArgumentException("Unable to verify the ip address of the request.");
+            var cookieval = GenerateEncryptedCookieValue(ip,salt);
+            return cookieval;
+        }
+
+        public static string GenerateEncryptedCookieValue(string payload, string salt, string key = null) {
+            if (string.IsNullOrWhiteSpace(key)) {
+                key = DateTime.UtcNow.ToShortDateString(); //Cookie encrypted with todays date.
+            }
+            if (string.IsNullOrWhiteSpace(salt)) throw new ArgumentException("Please provide salt for encrypting the cookie");
+
+            var cookieval = EncryptionUtils.Symmetric.Encrypt(payload, key, salt).value.ComputeHash(HashMethod.Sha256, false, true);
+            return cookieval;
         }
     }
 }

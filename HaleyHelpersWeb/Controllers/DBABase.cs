@@ -19,10 +19,10 @@ namespace Haley.Models {
         }
 
         [AllowAnonymous]
-        [Route("Reload")]
+        [Route("ForceReload")]
         [HttpGet]
         public async Task ReloadConfiguration() {
-            _dbservice?.GetConfigurationRoot(true); //this will generate a new Configuration root for all the already existing data and then update the connections accordingly.
+            _dbservice?.GetConfigurationRoot(true,true); //this will generate a new Configuration root for all the already existing data and then update the connections accordingly.
         }
 
         [AllowAnonymous]

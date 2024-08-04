@@ -7,8 +7,10 @@ using Microsoft.OpenApi.Models;
 using Haley.Abstractions;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Authentication;
 
 namespace Haley.Utils {
+    //https://stackoverflow.com/questions/49694383/use-multiple-jwt-bearer-authentication
 
     public static class WebAppMaker {
         const string LOCALCORS = "localCors";
@@ -70,28 +72,9 @@ namespace Haley.Utils {
                     });
                 }
 
-
                 //ADD AUTHENTICATION AND AUTHORIZATION
                 if (input.AuthMode == WebAppAuthMode.JWT && Globals.JWTParams != null) {
-                    builder.Services.AddAuthentication(p => {
-                        p.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-                        p.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-                    }).AddJwtBearer(q => {
-                        q.RequireHttpsMetadata = false; //HTTPS not required now.
-                        q.SaveToken = true;
-                        var jwtparams = Globals.JWTParams;
-                        q.TokenValidationParameters = new TokenValidationParameters() {
-                            ValidateIssuerSigningKey = true, //Important as this will verfiy the signature
-                            ValidateLifetime = true,
-                            ClockSkew = TimeSpan.Zero,
-                            RequireExpirationTime = true,
-                            ValidateIssuer = jwtparams.ValidateIssuer,
-                            ValidateAudience = jwtparams.ValidateAudience,
-                            ValidIssuer = jwtparams.Issuer,
-                            ValidAudience = jwtparams.Audience,
-                            IssuerSigningKey = new SymmetricSecurityKey(jwtparams.GetSecret())
-                        };
-                    });
+                    builder.Services.AddDefaultJWTAuthentication();
                 }
 
                 if (input.AuthMode != WebAppAuthMode.None) {
@@ -104,7 +87,7 @@ namespace Haley.Utils {
                         b.AllowAnyMethod()
                             .AllowAnyHeader()
                             //.AllowAnyOrigin() //Not working with latest .NET 8+
-                            .SetIsOriginAllowed(origin => input.OriginFilter == null ? true : input.OriginFilter.Invoke(origin))
+                            .SetIsOriginAllowed(origin => input.CorsOriginFilter == null ? true : input.CorsOriginFilter.Invoke(origin))
                             //.SetIsOriginAllowed(origin => new Uri(origin).Host == "localhost") //Allow local host.
                             .AllowCredentials()
                             .WithExposedHeaders("Content-Disposition"); // params string[]

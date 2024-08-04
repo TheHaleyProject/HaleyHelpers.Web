@@ -1,6 +1,8 @@
 ﻿namespace Haley.Enums {
     public enum WebAppAuthMode {
-        None = 0,
-        JWT = 1
+        Basic = 0,
+        JWT = 1, //Json Web Token
+        HWT = 2,
+        Cookie = 3
     }
 }

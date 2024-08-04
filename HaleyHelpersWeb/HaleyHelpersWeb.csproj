@@ -45,6 +45,7 @@
   
   <ItemGroup>
     <Folder Include="Abstractions\" />
+    <Folder Include="Utils\AuthHandlers\" />
   </ItemGroup>
 
   <Import Project="$(SolutionDir)ProjectReferences_$(SolutionName).txt" Condition="Exists('$(SolutionDir)ProjectReferences_$(SolutionName).txt')" />

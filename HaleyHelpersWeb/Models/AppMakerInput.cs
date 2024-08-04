@@ -8,10 +8,10 @@ namespace Haley.Models {
         public Func<string[]> JsonPathsProvider { get; set; }
         public bool IncludeSwaggerInProduction { get; set; }
         public bool HttpsRedirection { get; set; } = true;
-        public WebAppAuthMode AuthMode { get; set; } = WebAppAuthMode.None;
+        public List<WebAppAuthMode> AuthModes { get; set; } = new List<WebAppAuthMode>();
         public bool UseForwardedHeaders { get; set; } = true;
         public bool IncludeCors { get; set; }
-        public Func<string,bool> OriginFilter { get; set; }
+        public Func<string,bool> CorsOriginFilter { get; set; }
         public AppMakerInput(string[] args, Action<WebApplicationBuilder> builder, Action<WebApplication> app ) { Args = args; BuilderProcessor = builder; AppProcessor = app; }
         public AppMakerInput(string[] args, Action<WebApplicationBuilder> builder):this(args,builder,null) {  }
         public AppMakerInput(string[] args, Action<WebApplication> app):this(args,null,app) {  }

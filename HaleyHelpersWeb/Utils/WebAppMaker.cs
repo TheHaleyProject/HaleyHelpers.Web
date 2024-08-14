@@ -73,11 +73,8 @@ namespace Haley.Utils {
                 }
 
                 //ADD AUTHENTICATION AND AUTHORIZATION
-                if (input.AuthMode == WebAppAuthMode.JWT && Globals.JWTParams != null) {
+                if (input.IncludeJWTAuthentication && Globals.JWTParams != null) {
                     builder.Services.AddDefaultJWTAuthentication();
-                }
-
-                if (input.AuthMode != WebAppAuthMode.None) {
                     builder.Services.AddAuthorization();
                 }
 
@@ -95,7 +92,7 @@ namespace Haley.Utils {
                 }
 
                 //HEADERS FORWARD
-                if (input.UseForwardedHeaders) {
+                if (input.AddForwardedHeaders) {
                     builder.Services.Configure<ForwardedHeadersOptions>(options =>
                     {
                         options.ForwardedHeaders = ForwardedHeaders.XForwardedFor |
@@ -114,7 +111,7 @@ namespace Haley.Utils {
 
                 var app = builder.Build();
 
-                if (input.UseForwardedHeaders) {
+                if (input.AddForwardedHeaders) {
                     app.UseForwardedHeaders();
                 }
 

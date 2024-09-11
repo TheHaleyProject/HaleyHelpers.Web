@@ -74,7 +74,10 @@ namespace Haley.Utils {
 
                 //ADD AUTHENTICATION AND AUTHORIZATION
                 if (input.IncludeJWTAuthentication && Globals.JWTParams != null) {
-                    builder.Services.AddDefaultJWTAuthentication();
+                    builder.Services.AddAuthentication(p => {
+                        p.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                        p.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+                    }).AddJwtBearer(JWTUtil.ConfigureDefaultJWTAuth);
                     builder.Services.AddAuthorization();
                 }
 
@@ -130,8 +133,9 @@ namespace Haley.Utils {
                     app.UseHttpsRedirection();
                 }
 
-                app.UseAuthentication();
-                app.UseAuthorization();
+                //UseAuth should go before MapControllers and after UseRouting (if applicable)
+                if (input.UseAuthentication) app.UseAuthentication();
+                if (input.UseAuthorization) app.UseAuthorization();
                 app.MapControllers();
                 return app;
             } catch (Exception ex) {

@@ -9,6 +9,7 @@ using Haley.Utils;
 using Microsoft.AspNetCore.DataProtection;
 using System.Text;
 using Azure.Core;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 
 namespace Haley.Utils {
 
@@ -25,6 +26,23 @@ namespace Haley.Utils {
                 _secret = Encoding.UTF8.GetString(Convert.FromBase64String(key));
             }
             return GenerateToken(Encoding.ASCII.GetBytes(_secret), payload);
+        }
+
+        public static void ConfigureDefaultJWTAuth(JwtBearerOptions options) {
+            options.RequireHttpsMetadata = false; //HTTPS not required now.
+            options.SaveToken = true;
+            var jwtparams = Globals.JWTParams;
+            options.TokenValidationParameters = new TokenValidationParameters() {
+                ValidateIssuerSigningKey = true, //Important as this will verfiy the signature
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.Zero,
+                RequireExpirationTime = true,
+                ValidateIssuer = jwtparams.ValidateIssuer,
+                ValidateAudience = jwtparams.ValidateAudience,
+                ValidIssuer = jwtparams.Issuer,
+                ValidAudience = jwtparams.Audience,
+                IssuerSigningKey = new SymmetricSecurityKey(jwtparams.GetSecret())
+            };
         }
 
         public static string GenerateToken(byte[] key, JwtPayload payload) {

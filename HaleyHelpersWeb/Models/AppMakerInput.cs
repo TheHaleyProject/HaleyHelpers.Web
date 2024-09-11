@@ -9,11 +9,18 @@ namespace Haley.Models {
         internal Func<string[]> JsonPathsProvider { get; private set; }
         internal Func<string, bool> CorsOriginFilter { get; private set; }
         internal bool IncludeSwaggerInProduction { get; private set; }
-        internal bool IncludeJWTAuthentication { get; private set; }
+        internal bool IncludeJWTAuthentication { get; private set; } = false;
         internal bool HttpsRedirection { get; private set; } = true;
         internal bool AddForwardedHeaders { get; private set; } = true;
         internal bool IncludeCors { get; private set; }
+        internal bool UseAuthentication { get; private set; } = false;
+        internal bool UseAuthorization { get; private set; } = false;
 
+        public AppMakerInput UseAuth(bool use_authentication = false, bool use_authorization = false) {
+            UseAuthentication = use_authentication;
+            UseAuthorization = use_authorization;
+            return this;
+        }
         public AppMakerInput AddDefaultJWTAuth() {
             IncludeJWTAuthentication = true;
             return this;

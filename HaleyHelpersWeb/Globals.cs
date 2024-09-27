@@ -9,7 +9,7 @@ namespace Haley.Utils {
         internal static JWTParameters GetJWTParams(bool force_reload = false) {
             try {
                 if (_jwtParams == null || force_reload) {
-                    _jwtParams = DBAService.Instance.GetConfigurationRoot(force_reload:force_reload)?.GetSection("Authentication")?.GetSection("JWT")?.Get<JWTParameters>();
+                    _jwtParams = DBAService.Instance.GetConfigurationRoot(force_reload:force_reload)?.GetSection("Authentication")?.GetSection("Schemes")?.GetSection("JWT")?.Get<JWTParameters>();
                 }
                 return _jwtParams;
             } catch (Exception) {

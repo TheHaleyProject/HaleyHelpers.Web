@@ -8,7 +8,7 @@ namespace Haley.Models {
         public string? ContainerName { get; set; } //Sometimes we dont' want any root dir to be specified. We direclty start uploading.
 
         [FromQuery(Name = "ucid")]
-        public long? UnmanagedContainerId { get; set; } //Sometimes we dont' want any root dir to be specified. We direclty start uploading.
+        public long? UserContainerId { get; set; } //Sometimes we dont' want any root dir to be specified. We direclty start uploading.
 
         public VaultInfoBase() {
         }

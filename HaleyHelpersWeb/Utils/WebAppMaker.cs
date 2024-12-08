@@ -77,7 +77,7 @@ namespace Haley.Utils {
                     builder.Services.AddAuthentication(p => {
                         p.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
                         p.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-                    }).AddJwtBearer(JWTUtil.ConfigureDefaultJWTAuth);
+                    }).AddJwtBearer(JWTUtilEx.ConfigureDefaultJWTAuth);
                     builder.Services.AddAuthorization();
                 }
 

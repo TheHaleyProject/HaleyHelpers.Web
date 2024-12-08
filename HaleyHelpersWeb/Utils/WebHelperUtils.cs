@@ -40,7 +40,7 @@ namespace Haley.Utils {
             }
             if (string.IsNullOrWhiteSpace(salt)) throw new ArgumentException("Please provide salt for encrypting the cookie");
 
-            var cookieval = EncryptionUtils.Symmetric.Encrypt(payload, key, salt).value.ComputeHash(HashMethod.Sha256, false, true);
+            var cookieval = EncryptionUtils.Symmetric.Encrypt(payload, key, salt).value.ComputeHash(HashMethod.Sha256, false);
             return cookieval;
         }
     }

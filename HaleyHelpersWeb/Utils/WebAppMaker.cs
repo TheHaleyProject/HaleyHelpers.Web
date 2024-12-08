@@ -8,6 +8,7 @@ using Haley.Abstractions;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Authentication;
+using Swashbuckle.AspNetCore.SwaggerGen;
 
 namespace Haley.Utils {
     //https://stackoverflow.com/questions/49694383/use-multiple-jwt-bearer-authentication
@@ -20,6 +21,36 @@ namespace Haley.Utils {
         public static WebApplication GetApp(AppMakerInput input) {
             if (input == null) return null;
             return GetAppInternal(input);
+        }
+
+        public static void GenerateSwagger(SwaggerGenOptions gen, List<SwaggerInput> swaggerInputs) {
+            //gen.SwaggerDoc(
+            // "v1",
+            // new OpenApiInfo { Title = "Some title", Version = "v1" });
+            gen.OrderActionsBy((apiDesc) => $"{apiDesc.RelativePath}");
+            //gen.DescribeAllParametersInCamelCase();
+
+            //Foreach values (add definition & security requirements)
+            var osr = new OpenApiSecurityRequirement();
+
+            foreach (var swgInp in swaggerInputs) {
+                gen.AddSecurityDefinition(swgInp.SchemeName, new OpenApiSecurityScheme {
+                    Name = swgInp.HeaderName,
+                    Description = $@"Please provide a JWT Token for policy : {swgInp.SchemeName}",
+                    In = ParameterLocation.Header,
+                    Type = swgInp.SchemeType,
+                    BearerFormat = "JWT",
+                    Scheme = swgInp.SchemeName
+                });
+
+                osr.Add(new OpenApiSecurityScheme {
+                    Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = swgInp.SchemeName },
+                    In = ParameterLocation.Header
+                },new string[] { });
+            }
+
+            //gen.OperationFilter<IOperationFilter> //Add implementation of a custom filter. Or use the below security requirement
+            gen.AddSecurityRequirement(osr);
         }
 
         static WebApplication GetAppInternal(AppMakerInput input) {
@@ -47,33 +78,14 @@ namespace Haley.Utils {
                 //ADD BASIC SERVICES
                 builder.Services.AddControllers().AddJsonOptions(o=> { o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()); });
                 builder.Services.AddEndpointsApiExplorer();
+
+                //ADD SWAGGER
                 if (builder.Environment.IsDevelopment() || input.IncludeSwaggerInProduction) {
-                    builder.Services.AddSwaggerGen(gen => {
-                        gen.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme {
-                            Name = "Authorization",
-                            Description = "Please provide a JWT Token",
-                            In = ParameterLocation.Header,
-                            Type = SecuritySchemeType.Http,
-                            Scheme = JwtBearerDefaults.AuthenticationScheme
-                        });
-                        //gen.OperationFilter<IOperationFilter> //Add implementation of a custom filter. Or use the below security requirement
-                        gen.AddSecurityRequirement(new OpenApiSecurityRequirement {
-                    {
-                        new OpenApiSecurityScheme {
-                            Reference = new OpenApiReference {
-                                Type =ReferenceType.SecurityScheme,
-                                Id = "Bearer"
-                            },
-                            In = ParameterLocation.Header,
-                        },
-                        new List<string>()
-                    }
-                });
-                    });
+                    builder.Services.AddSwaggerGen(gen => GenerateSwagger(gen, input.AuthSchemes));
                 }
 
                 //ADD AUTHENTICATION AND AUTHORIZATION
-                if (input.IncludeJWTAuthentication && Globals.JWTParams != null) {
+                if (input.IncludeDefaultJWTAuth && Globals.JWTParams != null) {
                     builder.Services.AddAuthentication(p => {
                         p.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
                         p.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;

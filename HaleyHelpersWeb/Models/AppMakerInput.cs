@@ -17,7 +17,7 @@ namespace Haley.Models {
         internal bool IncludeCors { get; private set; }
         internal bool UseAuthentication { get; private set; } = false;
         internal bool UseAuthorization { get; private set; } = false;
-        internal List<SwaggerInput> AuthSchemes { get; private set; } = new List<SwaggerInput> { new SwaggerInput(JwtBearerDefaults.AuthenticationScheme,"Authorization", SecuritySchemeType.Http) };
+        internal List<SwaggerInput> SwaggerSchemes { get; private set; } = new List<SwaggerInput> { new SwaggerInput(JwtBearerDefaults.AuthenticationScheme,"Authorization", SecuritySchemeType.Http) };
 
         public AppMakerInput UseAuth(bool use_authentication = false, bool use_authorization = false) {
             UseAuthentication = use_authentication;
@@ -25,9 +25,9 @@ namespace Haley.Models {
             return this;
         }
 
-        public AppMakerInput IncludeAuthScheme(SwaggerInput input) {
-            if (!string.IsNullOrWhiteSpace(input.SchemeName) && !AuthSchemes.Any(p=> p.SchemeName == input.SchemeName)) {
-                AuthSchemes.Add(input);
+        public AppMakerInput AddSwaggerScheme(SwaggerInput input) {
+            if (!string.IsNullOrWhiteSpace(input.SchemeName) && !SwaggerSchemes.Any(p=> p.SchemeName == input.SchemeName)) {
+                SwaggerSchemes.Add(input);
             }
             return this;
         }

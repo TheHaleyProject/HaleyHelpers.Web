@@ -81,7 +81,7 @@ namespace Haley.Utils {
 
                 //ADD SWAGGER
                 if (builder.Environment.IsDevelopment() || input.IncludeSwaggerInProduction) {
-                    builder.Services.AddSwaggerGen(gen => GenerateSwagger(gen, input.AuthSchemes));
+                    builder.Services.AddSwaggerGen(gen => GenerateSwagger(gen, input.SwaggerSchemes));
                 }
 
                 //ADD AUTHENTICATION AND AUTHORIZATION

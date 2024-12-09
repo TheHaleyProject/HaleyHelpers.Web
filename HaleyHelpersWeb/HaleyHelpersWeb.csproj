@@ -14,7 +14,7 @@
     <IsPackable>true</IsPackable>
     <AssemblyOriginatorKeyFile>..\..\HaleyProject\HaleyProject.snk</AssemblyOriginatorKeyFile>
     <PackageIcon>Haley.png</PackageIcon>
-    <Version>0.0.23</Version>
+    <Version>0.0.23.1</Version>
     <IncludeSymbols>True</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
@@ -60,7 +60,7 @@
     </When>
     <Otherwise>
       <ItemGroup>
-        <PackageReference Include="Haley.Helpers.DB" Version="0.0.16" />
+        <PackageReference Include="Haley.Helpers.DB" Version="0.0.16.1" />
       </ItemGroup>
     </Otherwise>
   </Choose>

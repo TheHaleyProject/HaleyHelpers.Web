@@ -7,8 +7,9 @@ using Haley.Enums;
 namespace Haley.Models {
     public class PlainCookieAuthHandler : PlainAuthHandlerBase {
         public PlainCookieAuthHandler(IOptionsMonitor<PlainAuthOptions> options, ILoggerFactory logger, UrlEncoder encoder, ISystemClock clock) : base(options, logger, encoder, clock) {
-            Options.AuthMode = PlainAuthMode.Cookie;
         }
+
+        protected override PlainAuthMode AuthMode { get; set; } = PlainAuthMode.Cookie;
 
         protected override bool GetToken(out string token) {
             token = string.Empty;

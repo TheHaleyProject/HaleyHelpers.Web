@@ -28,6 +28,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Utils\AuthHandlers\**" />
+    <Content Remove="Utils\AuthHandlers\**" />
+    <EmbeddedResource Remove="Utils\AuthHandlers\**" />
+    <None Remove="Utils\AuthHandlers\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Include="..\..\HaleyProject\Haley.png">
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
@@ -45,7 +52,6 @@
   
   <ItemGroup>
     <Folder Include="Abstractions\" />
-    <Folder Include="Utils\AuthHandlers\" />
   </ItemGroup>
 
   <Import Project="$(SolutionDir)ProjectReferences_$(SolutionName).txt" Condition="Exists('$(SolutionDir)ProjectReferences_$(SolutionName).txt')" />

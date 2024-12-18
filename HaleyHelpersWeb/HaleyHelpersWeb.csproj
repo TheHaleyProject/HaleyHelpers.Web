@@ -60,7 +60,7 @@
     </When>
     <Otherwise>
       <ItemGroup>
-        <PackageReference Include="Haley.Helpers.DB" Version="0.0.16.1" />
+        <PackageReference Include="Haley.Helpers.DB" Version="0.0.16.2" />
       </ItemGroup>
     </Otherwise>
   </Choose>

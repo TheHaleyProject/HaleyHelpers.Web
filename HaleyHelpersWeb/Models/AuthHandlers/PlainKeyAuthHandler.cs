@@ -6,7 +6,7 @@ using Haley.Enums;
 
 namespace Haley.Models {
     public class PlainKeyAuthHandler : PlainAuthHandlerBase {
-        public PlainKeyAuthHandler(IOptionsMonitor<PlainAuthOptions> options, ILoggerFactory logger, UrlEncoder encoder, ISystemClock clock) : base(options, logger, encoder, clock) {
+        public PlainKeyAuthHandler(IOptionsMonitor<PlainAuthOptions> options, ILoggerFactory logger, UrlEncoder encoder, ISystemClock clock) : base(options, logger, encoder,clock) {
             options.CurrentValue.AuthMode = PlainAuthMode.APIKey;
         }
 

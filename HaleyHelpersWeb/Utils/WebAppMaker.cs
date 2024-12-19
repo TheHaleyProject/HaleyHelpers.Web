@@ -101,8 +101,11 @@ namespace Haley.Utils {
                             //.AllowAnyOrigin() //Not working with latest .NET 8+
                             .SetIsOriginAllowed(origin => input.CorsOriginFilter == null ? true : input.CorsOriginFilter.Invoke(origin))
                             //.SetIsOriginAllowed(origin => new Uri(origin).Host == "localhost") //Allow local host.
-                            .AllowCredentials()
-                            .WithExposedHeaders("Content-Disposition"); // params string[]
+                            .AllowCredentials();
+
+                        if (input.ExposedHeaders != null && input.ExposedHeaders.Count > 0) {
+                            b.WithExposedHeaders(input.ExposedHeaders.ToArray()); // params string[]
+                        }
                     }));
                 }
 

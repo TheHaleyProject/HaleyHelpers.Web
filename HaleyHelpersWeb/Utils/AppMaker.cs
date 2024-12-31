@@ -9,21 +9,93 @@ using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Authentication;
 using Swashbuckle.AspNetCore.SwaggerGen;
+using System.Runtime.CompilerServices;
 
 namespace Haley.Utils {
     //https://stackoverflow.com/questions/49694383/use-multiple-jwt-bearer-authentication
-
-    public static class WebAppMaker {
+    public class AppMaker {
+        static AppMaker inst = new AppMaker(); //Singleton
         const string LOCALCORS = "localCors";
-
         public static JWTParameters JWTParams = Globals.JWTParams;
+        AppMakerInput appInput;
 
-        public static WebApplication GetApp(AppMakerInput input) {
-            if (input == null) return null;
-            return GetAppInternal(input);
+        public static AppMaker Get(string[] args, Func<string[]> configPathsProvider = null) {
+            if (inst.appInput == null) {
+                inst.appInput = new AppMakerInput(args, configPathsProvider);
+            }
+            return inst;
         }
 
-        public static void GenerateSwagger(SwaggerGenOptions gen, List<SwaggerInput> swaggerInputs) {
+        public WebApplication Build() {
+            if (inst.appInput == null) inst.appInput = new AppMakerInput(null, null); //Generate a dummy appmaker input without any parameters.
+            return GetAppInternal(inst.appInput);
+        }
+
+        public AppMaker UseAuth(bool use_authentication = false, bool use_authorization = false) {
+            appInput.UseAuthentication = use_authentication;
+            appInput.UseAuthorization = use_authorization;
+            return this;
+        }
+
+        public AppMaker AddSwaggerScheme(SwaggerInput input) {
+            if (!string.IsNullOrWhiteSpace(input.SchemeName) && !appInput.SwaggerSchemes.Any(p => p.SchemeName == input.SchemeName)) {
+                appInput.SwaggerSchemes.Add(input);
+            }
+            return this;
+        }
+
+        public AppMaker AddDefaultJWTAuth() {
+            appInput.IncludeDefaultJWTAuth = true;
+            return this;
+        }
+        public AppMaker AddSwaggerinProduction(bool add_swagger = true) {
+            appInput.IncludeSwaggerInProduction = add_swagger;
+            return this;
+        }
+
+        public AppMaker WithForwardedHeaders(bool forward_headers = true) {
+            appInput.AddForwardedHeaders = forward_headers;
+            return this;
+        }
+
+        public AppMaker WithoutSwagger() {
+            appInput.DisableSwagger = true;
+            return this;
+        }
+        public AppMaker WithHttpsRedirection(bool https_redir = true) {
+            appInput.HttpsRedirection = https_redir;
+            return this;
+        }
+        public AppMaker WithCors(bool add_cors = true, Func<string, bool> originFilter = null) {
+            appInput.CorsOriginFilter = originFilter; //if origin filter is null
+            appInput.IncludeCors = add_cors;
+            return this;
+        }
+
+        public AppMaker ExposeHeaders(params string[] headers) {
+            if (headers == null || headers.Count() < 1) return this;
+            if (appInput.ExposedHeaders == null) appInput.ExposedHeaders = new List<string>();
+            foreach (var header in headers) {
+                if (string.IsNullOrWhiteSpace(header)) continue;
+                appInput.ExposedHeaders.Add(header);
+            }
+            return this;
+        }
+
+        public AppMaker ClearExposedHeaders() {
+            appInput.ExposedHeaders?.Clear(); return this;
+        }
+
+        public AppMaker WithAppProcessor(Action<WebApplication> app) {
+            if (appInput.AppProcessor == null) appInput.AppProcessor = app;
+            return this;
+        }
+        public AppMaker WithBuilderProcessor(Action<WebApplicationBuilder> builder) {
+            if (appInput.BuilderProcessor == null) appInput.BuilderProcessor = builder;
+            return this;
+        }
+
+        static void GenerateSwagger(SwaggerGenOptions gen, List<SwaggerInput> swaggerInputs) {
             //gen.SwaggerDoc(
             // "v1",
             // new OpenApiInfo { Title = "Some title", Version = "v1" });
@@ -77,10 +149,10 @@ namespace Haley.Utils {
 
                 //ADD BASIC SERVICES
                 builder.Services.AddControllers().AddJsonOptions(o=> { o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()); });
-                builder.Services.AddEndpointsApiExplorer();
+                builder.Services.AddEndpointsApiExplorer(); //Which registers all the endpoints
 
-                //ADD SWAGGER
-                if (builder.Environment.IsDevelopment() || input.IncludeSwaggerInProduction) {
+                //ADD SWAGGER (only if it is not disabled by user)
+                if (!input.DisableSwagger && (builder.Environment.IsDevelopment() || input.IncludeSwaggerInProduction)) {
                     builder.Services.AddSwaggerGen(gen => GenerateSwagger(gen, input.SwaggerSchemes));
                 }
 
@@ -139,7 +211,7 @@ namespace Haley.Utils {
                     // INVOKE USER DEFINED SERVICE USES FOR THE APP
                     input.AppProcessor?.Invoke(app);
 
-                if (builder.Environment.IsDevelopment() || input.IncludeSwaggerInProduction) {
+                if (!input.DisableSwagger && (builder.Environment.IsDevelopment() || input.IncludeSwaggerInProduction)) {
                     app.UseSwagger();
                     app.UseSwaggerUI();
                 }

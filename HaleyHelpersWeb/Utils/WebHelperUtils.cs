@@ -7,15 +7,16 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using System.Web;
+using System;
 
 namespace Haley.Utils {
     public static class WebHelperUtils {
         public static object ConvertDBAResult(this object input, ResultFilter filter = ResultFilter.FirstDictionaryValue) {
             //If we send error
-            if (input is DBAError dbaerr) {
+            if (input is FeedbackError dbaerr) {
                 return new BadRequestObjectResult(dbaerr.ToString());
             }
-            if (input is DBAResult dbres) {
+            if (input is Feedback dbres) {
                 return new OkObjectResult(dbres.ToString());
             }
             //If we send direct action result

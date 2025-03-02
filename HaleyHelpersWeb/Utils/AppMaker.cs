@@ -142,10 +142,10 @@ namespace Haley.Utils {
                     allpaths = allpaths.Distinct().ToList(); //Remove duplicates
                 }
 
-                DBAService.Instance.SetConfigurationRoot(allpaths?.ToArray()).Configure().SetServiceUtil(new DBAServiceUtil());
-                DBAService.Instance.Updated += Globals.HandleConfigUpdate;
+                DBService.Instance.SetConfigurationRoot(allpaths?.ToArray()).Configure().SetServiceUtil(new DBAServiceUtil());
+                DBService.Instance.Updated += Globals.HandleConfigUpdate;
 
-                builder.Services.AddSingleton<IDBService,DBAService>(provider => DBAService.Instance ); //Not necessary as we can directly call the singleton.
+                builder.Services.AddSingleton<IDBService, DBService>(provider => DBService.Instance ); //Not necessary as we can directly call the singleton.
 
                 //ADD BASIC SERVICES
                 builder.Services.AddControllers().AddJsonOptions(o=> { o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()); });

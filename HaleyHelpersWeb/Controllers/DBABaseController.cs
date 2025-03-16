@@ -32,11 +32,11 @@ namespace Haley.Models {
         public async Task<object> GetDBAEntries() {
 
             return _dbservice.Values.Select(p => new {
-                Type = p.Entry.DBType.ToString(),
-                DB = p.Entry.DBName,
-                Schema = p.Entry.SchemaName,
-                Key = p.Entry.AdapterKey,
-                Host = DBService.ParseConnectionString(p.Entry.ConnectionString,"host=")
+                Type = p.Info.DBType.ToString(),
+                DB = p.Info.DBName,
+                Schema = p.Info.SchemaName,
+                Key = p.Info.AdapterKey,
+                Host = DBService.ParseConnectionString(p.Info.ConnectionString,"host=")
             });
         }
     }

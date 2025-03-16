@@ -14,7 +14,7 @@
     <IsPackable>true</IsPackable>
     <AssemblyOriginatorKeyFile>..\..\HaleyProject\HaleyProject.snk</AssemblyOriginatorKeyFile>
     <PackageIcon>Haley.png</PackageIcon>
-    <Version>0.0.24</Version>
+    <Version>0.0.25</Version>
     <IncludeSymbols>True</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
@@ -28,9 +28,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Abstractions\**" />
     <Compile Remove="Utils\AuthHandlers\**" />
+    <Content Remove="Abstractions\**" />
     <Content Remove="Utils\AuthHandlers\**" />
+    <EmbeddedResource Remove="Abstractions\**" />
     <EmbeddedResource Remove="Utils\AuthHandlers\**" />
+    <None Remove="Abstractions\**" />
     <None Remove="Utils\AuthHandlers\**" />
   </ItemGroup>
 
@@ -48,10 +52,6 @@
     <PackageReference Condition="'$(TargetFramework)'=='net9.0'" Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.2" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
   </ItemGroup>
-  
-  <ItemGroup>
-    <Folder Include="Abstractions\" />
-  </ItemGroup>
 
   <Import Project="$(SolutionDir)ProjectReferences_$(SolutionName).txt" Condition="Exists('$(SolutionDir)ProjectReferences_$(SolutionName).txt')" />
 
@@ -65,7 +65,7 @@
     </When>
     <Otherwise>
       <ItemGroup>
-        <PackageReference Include="Haley.Helpers.DB" Version="0.0.17" />
+        <PackageReference Include="Haley.Helpers.DB" Version="0.0.19" />
       </ItemGroup>
     </Otherwise>
   </Choose>

@@ -1,4 +1,6 @@
-﻿using Haley.Enums;
+﻿using Haley.Abstractions;
+using Haley.Enums;
+using Haley.Utils;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Server.HttpSys;
 using Microsoft.OpenApi.Models;
@@ -6,6 +8,15 @@ using System.Reflection.Metadata.Ecma335;
 
 namespace Haley.Models {
     internal class AppMakerInput {
+        IDBService _dbs;
+        internal IDBService DBservice {
+            get {
+                if (_dbs == null) {
+                    _dbs = new DBService(true);
+                }
+                return _dbs; }
+            set { _dbs = value; }
+        }
         internal string[] Args { get; set; }
         internal Action<WebApplicationBuilder> BuilderProcessor { get; set; }
         internal Action<WebApplication> AppProcessor { get; set; }

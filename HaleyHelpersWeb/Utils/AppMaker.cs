@@ -72,6 +72,15 @@ namespace Haley.Utils {
             return this;
         }
 
+        public AppMaker WithDBService (IDBService dbservice) {
+            if (dbservice == null) {
+                appInput.DBservice = new DBService(true); //Let us autoconfigure it.
+            } else {
+                appInput.DBservice = dbservice;
+            }
+            return this;
+        }
+
         public AppMaker ExposeHeaders(params string[] headers) {
             if (headers == null || headers.Count() < 1) return this;
             if (appInput.ExposedHeaders == null) appInput.ExposedHeaders = new List<string>();
@@ -142,10 +151,14 @@ namespace Haley.Utils {
                     allpaths = allpaths.Distinct().ToList(); //Remove duplicates
                 }
 
-                DBService.Instance.SetConfigurationRoot(allpaths?.ToArray()).Configure().SetServiceUtil(new DBAServiceUtil());
-                DBService.Instance.Updated += Globals.HandleConfigUpdate;
+                Globals.DBService = input.DBservice; 
 
-                builder.Services.AddSingleton<IDBService, DBService>(provider => DBService.Instance ); //Not necessary as we can directly call the singleton.
+                if (input.DBservice is DBService dbs) {
+                    dbs.SetConfigurationRoot(allpaths?.ToArray()).Configure().SetServiceUtil(new DBAServiceUtil());
+                    dbs.Updated += Globals.HandleConfigUpdate;
+                }
+
+                builder.Services.AddSingleton<IDBService>(input.DBservice);
 
                 //ADD BASIC SERVICES
                 builder.Services.AddControllers().AddJsonOptions(o=> { o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()); });

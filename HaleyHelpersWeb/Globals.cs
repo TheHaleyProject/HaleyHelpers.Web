@@ -1,15 +1,17 @@
-﻿using Haley.Models;
+﻿using Haley.Abstractions;
+using Haley.Models;
 using System.Security.Cryptography;
 using System.Text;
 
 namespace Haley.Utils {
     internal static class Globals {
         static JWTParameters _jwtParams;
+        internal static IDBService DBService;
         internal static JWTParameters JWTParams => GetJWTParams();
         internal static JWTParameters GetJWTParams( bool force_reload = false) {
             try {
                 if (_jwtParams == null || force_reload) {
-                    _jwtParams = DBService.Instance.GetConfigurationRoot(force_reload:force_reload)?.GetSection("Authentication")?.GetSection("Schemes")?.GetSection("JWT")?.Get<JWTParameters>();
+                    _jwtParams = DBService?.GetConfigurationRoot(force_reload:force_reload)?.GetSection("Authentication")?.GetSection("Schemes")?.GetSection("JWT")?.Get<JWTParameters>();
                 }
                 return _jwtParams;
             } catch (Exception) {

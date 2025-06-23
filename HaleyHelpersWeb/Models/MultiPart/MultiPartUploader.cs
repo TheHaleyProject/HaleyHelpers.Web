@@ -15,10 +15,10 @@ namespace Haley.Models {
     {
         private readonly FormOptions _defaultFormOptions = new FormOptions();
 
-        Func<IObjectUploadRequest, Task<ObjectCreateResponse>> _fileHandler;
+        Func<IObjectUploadRequest, Task<IObjectCreateResponse>> _fileHandler;
         Func<Dictionary<string,StringValues>, Task<bool>> _dataHandler; 
 
-        public MultiPartUploader(Func<IObjectUploadRequest, Task<ObjectCreateResponse>> fileSectionHandler, Func<Dictionary<string, StringValues>, Task<bool>> dataSectionHandler) {
+        public MultiPartUploader(Func<IObjectUploadRequest, Task<IObjectCreateResponse>> fileSectionHandler, Func<Dictionary<string, StringValues>, Task<bool>> dataSectionHandler) {
             _fileHandler = fileSectionHandler;
             _dataHandler = dataSectionHandler;
         }
@@ -71,7 +71,7 @@ namespace Haley.Models {
                             reqClone.RawName = fsection.FileName; //Not sure what to do with this.
                             reqClone.Id = fsection.Name; //For repo mode, this becomes the path.
 
-                            var saveSummary = new ObjectCreateResponse() { Status = false };
+                            IObjectCreateResponse saveSummary = new ObjectCreateResponse() { Status = false };
                             try {
                                 saveSummary = await _fileHandler(reqClone);
                             } catch (Exception ex) {

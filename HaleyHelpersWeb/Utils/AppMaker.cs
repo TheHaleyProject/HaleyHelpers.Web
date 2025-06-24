@@ -72,9 +72,9 @@ namespace Haley.Utils {
             return this;
         }
 
-        public AppMaker WithDBService (IDBService dbservice) {
+        public AppMaker WithDBService (IDataGateway dbservice) {
             if (dbservice == null) {
-                appInput.DBservice = new DBService(true); //Let us autoconfigure it.
+                appInput.DBservice = new DataGateway(true); //Let us autoconfigure it.
             } else {
                 appInput.DBservice = dbservice;
             }
@@ -153,12 +153,12 @@ namespace Haley.Utils {
 
                 Globals.DBService = input.DBservice; 
 
-                if (input.DBservice is DBService dbs) {
+                if (input.DBservice is DataGateway dbs) {
                     dbs.SetConfigurationRoot(allpaths?.ToArray()).Configure().SetServiceUtil(new DBAServiceUtil());
                     dbs.Updated += Globals.HandleConfigUpdate;
                 }
 
-                builder.Services.AddSingleton<IDBService>(input.DBservice);
+                builder.Services.AddSingleton<IDataGateway>(input.DBservice);
 
                 //ADD BASIC SERVICES
                 builder.Services.AddControllers().AddJsonOptions(o=> { o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()); });

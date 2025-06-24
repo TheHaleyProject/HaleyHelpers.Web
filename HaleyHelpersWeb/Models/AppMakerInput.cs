@@ -8,11 +8,11 @@ using System.Reflection.Metadata.Ecma335;
 
 namespace Haley.Models {
     internal class AppMakerInput {
-        IDBService _dbs;
-        internal IDBService DBservice {
+        IDataGateway _dbs;
+        internal IDataGateway DBservice {
             get {
                 if (_dbs == null) {
-                    _dbs = new DBService(true);
+                    _dbs = new DataGateway(true);
                 }
                 return _dbs; }
             set { _dbs = value; }

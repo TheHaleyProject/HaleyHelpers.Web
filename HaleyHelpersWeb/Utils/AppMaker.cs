@@ -72,9 +72,9 @@ namespace Haley.Utils {
             return this;
         }
 
-        public AppMaker WithService (IDataGateway data_gateway) {
+        public AppMaker WithService (IAdapterGateway data_gateway) {
             if (data_gateway == null) {
-                appInput.DBGateway = new DataGateway(true); //Let us autoconfigure it.
+                appInput.DBGateway = new AdapterGateway(true); //Let us autoconfigure it.
             } else {
                 appInput.DBGateway = data_gateway;
             }
@@ -153,12 +153,12 @@ namespace Haley.Utils {
 
                 Globals.DBService = input.DBGateway; 
 
-                if (input.DBGateway is DataGateway dbs) {
+                if (input.DBGateway is AdapterGateway dbs) {
                     dbs.SetConfigurationRoot(allpaths?.ToArray()).Configure().SetServiceUtil(new DBAServiceUtil());
                     dbs.Updated += Globals.HandleConfigUpdate;
                 }
 
-                builder.Services.AddSingleton<IDataGateway>(input.DBGateway);
+                builder.Services.AddSingleton<IAdapterGateway>(input.DBGateway);
 
                 //ADD BASIC SERVICES
                 builder.Services.AddControllers().AddJsonOptions(o=> { o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()); });

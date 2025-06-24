@@ -6,9 +6,9 @@ using Haley.Utils;
 namespace Haley.Models {
 
     public abstract class DBABaseController : ControllerBase {
-        private IDataGateway _dbservice;
+        private IAdapterGateway _dbservice;
 
-        public DBABaseController(IDataGateway dbservice) {
+        public DBABaseController(IAdapterGateway dbservice) {
             _dbservice = dbservice;
         }
 
@@ -36,7 +36,7 @@ namespace Haley.Models {
                 DB = p.Info.DBName,
                 Schema = p.Info.SchemaName,
                 Key = p.Info.AdapterKey,
-                Host = DataGateway.ParseConnectionString(p.Info.ConnectionString,"host=")
+                Host = AdapterGateway.ParseConnectionString(p.Info.ConnectionString,"host=")
             });
         }
     }

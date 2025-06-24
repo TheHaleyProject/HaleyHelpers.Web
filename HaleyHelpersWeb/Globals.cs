@@ -6,7 +6,7 @@ using System.Text;
 namespace Haley.Utils {
     internal static class Globals {
         static JWTParameters _jwtParams;
-        internal static IDataGateway DBService;
+        internal static IAdapterGateway DBService;
         internal static JWTParameters JWTParams => GetJWTParams();
         internal static JWTParameters GetJWTParams( bool force_reload = false) {
             try {

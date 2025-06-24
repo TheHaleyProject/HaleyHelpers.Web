@@ -14,7 +14,7 @@
     <IsPackable>true</IsPackable>
     <AssemblyOriginatorKeyFile>..\..\HaleyProject\HaleyProject.snk</AssemblyOriginatorKeyFile>
     <PackageIcon>Haley.png</PackageIcon>
-    <Version>0.0.27</Version>
+    <Version>0.0.28</Version>
     <IncludeSymbols>True</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
@@ -50,7 +50,7 @@
     <!--<PackageReference Condition="'$(TargetFramework)'=='net6.0'" Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="6.0.28" />-->
     <PackageReference Condition="'$(TargetFramework)'=='net8.0'" Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.3" />
     <PackageReference Condition="'$(TargetFramework)'=='net9.0'" Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.2" />
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="9.0.1" />
   </ItemGroup>
 
   <Import Project="$(SolutionDir)ProjectReferences_$(SolutionName).txt" Condition="Exists('$(SolutionDir)ProjectReferences_$(SolutionName).txt')" />
@@ -65,7 +65,7 @@
     </When>
     <Otherwise>
       <ItemGroup>
-        <PackageReference Include="Haley.Helpers.DB" Version="0.0.21" />
+        <PackageReference Include="Haley.Helpers.DB" Version="0.0.23" />
       </ItemGroup>
     </Otherwise>
   </Choose>

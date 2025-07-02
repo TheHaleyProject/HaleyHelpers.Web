@@ -159,6 +159,9 @@ namespace Haley.Utils {
                 }
 
                 builder.Services.AddSingleton<IAdapterGateway>(input.DBGateway);
+                if (input.DBGateway is IModularGateway mg) {
+                    builder.Services.AddSingleton<IModularGateway>(mg);
+                }
 
                 //ADD BASIC SERVICES
                 builder.Services.AddControllers().AddJsonOptions(o=> { o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()); });

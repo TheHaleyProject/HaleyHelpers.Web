@@ -31,6 +31,7 @@ namespace Haley.Models {
         internal bool IncludeCors { get; set; }
         internal bool UseAuthentication { get; set; } = false;
         internal bool UseAuthorization { get; set; } = false;
+        internal string SwaggerRoute { get; set; }
         internal List<SwaggerInput> SwaggerSchemes { get; set; } = new List<SwaggerInput> { new SwaggerInput(JwtBearerDefaults.AuthenticationScheme, "Authorization", SecuritySchemeType.Http) };
         public AppMakerInput(string[] args, Func<string[]> configPathsProvider) { Args = args; JsonPathsProvider = configPathsProvider; }
         public AppMakerInput(string[] args) : this(args, null) { }

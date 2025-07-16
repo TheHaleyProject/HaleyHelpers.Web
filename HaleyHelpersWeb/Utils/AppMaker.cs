@@ -44,6 +44,12 @@ namespace Haley.Utils {
             return this;
         }
 
+        public AppMaker AddSwaggerRoute(string route) {
+            if (string.IsNullOrWhiteSpace(route)) return this;
+            appInput.SwaggerRoute = route;
+            return this;
+        }
+
         public AppMaker AddDefaultJWTAuth() {
             appInput.IncludeDefaultJWTAuth = true;
             return this;
@@ -132,6 +138,33 @@ namespace Haley.Utils {
 
             //gen.OperationFilter<IOperationFilter> //Add implementation of a custom filter. Or use the below security requirement
             gen.AddSecurityRequirement(osr);
+        }
+
+        static void InitiateSwagger(WebApplication app,string swaggerRoute) {
+            if (string.IsNullOrWhiteSpace(swaggerRoute)) {
+                app.UseSwagger();
+                app.UseSwaggerUI();
+                return; ///Return
+            }
+
+            app.UseSwagger(c =>
+            {
+                c.RouteTemplate = swaggerRoute + "/{documentName}/swagger.json";
+                c.PreSerializeFilters.Add((swaggerDoc, httpReq) =>
+                {
+                    swaggerDoc.Servers = new List<OpenApiServer> { new OpenApiServer
+            {
+                Url = $"{httpReq.Scheme}://{httpReq.Host.Value}/{swaggerRoute}"
+            }
+        };
+                });
+            });
+
+            app.UseSwaggerUI(c =>
+            {
+                c.SwaggerEndpoint($"/{swaggerRoute}/v1/swagger.json", "your api v1");
+                c.RoutePrefix = swaggerRoute;
+            });
         }
 
         static WebApplication GetAppInternal(AppMakerInput input) {
@@ -227,10 +260,7 @@ namespace Haley.Utils {
                     // INVOKE USER DEFINED SERVICE USES FOR THE APP
                     input.AppProcessor?.Invoke(app);
 
-                if (!input.DisableSwagger && (builder.Environment.IsDevelopment() || input.IncludeSwaggerInProduction)) {
-                    app.UseSwagger();
-                    app.UseSwaggerUI();
-                }
+                if (!input.DisableSwagger && (builder.Environment.IsDevelopment() || input.IncludeSwaggerInProduction)) InitiateSwagger(app,input.SwaggerRoute);
 
                 if (input.HttpsRedirection) {
                     app.UseHttpsRedirection();

@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Authentication;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using System.Runtime.CompilerServices;
+using System.Reflection;
 
 namespace Haley.Utils {
     //https://stackoverflow.com/questions/49694383/use-multiple-jwt-bearer-authentication
@@ -149,21 +150,18 @@ namespace Haley.Utils {
 
             app.UseSwagger(c =>
             {
-                c.RouteTemplate = swaggerRoute + "/{documentName}/swagger.json";
-                c.PreSerializeFilters.Add((swaggerDoc, httpReq) =>
-                {
-                    swaggerDoc.Servers = new List<OpenApiServer> { new OpenApiServer
-            {
-                Url = $"{httpReq.Scheme}://{httpReq.Host.Value}/{swaggerRoute}"
-            }
-        };
+                //c.RouteTemplate = swaggerRoute + "/{documentName}/swagger.json";
+                c.RouteTemplate =  "swagger/{documentName}/swagger.json";
+                c.PreSerializeFilters.Add((swaggerDoc, httpReq) => {
+                    swaggerDoc.Servers = new List<OpenApiServer> { new OpenApiServer {
+                        Url = $"{httpReq.Scheme}://{httpReq.Host.Value}/{swaggerRoute}" }};
                 });
             });
 
             app.UseSwaggerUI(c =>
             {
-                c.SwaggerEndpoint($"/{swaggerRoute}/v1/swagger.json", "your api v1");
-                c.RoutePrefix = swaggerRoute;
+                c.SwaggerEndpoint($"/{swaggerRoute}/swagger/v1/swagger.json", $"API");
+                c.RoutePrefix = "swagger";
             });
         }
 

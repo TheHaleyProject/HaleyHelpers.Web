@@ -153,8 +153,12 @@ namespace Haley.Utils {
                 //c.RouteTemplate = swaggerRoute + "/{documentName}/swagger.json";
                 c.RouteTemplate =  "swagger/{documentName}/swagger.json";
                 c.PreSerializeFilters.Add((swaggerDoc, httpReq) => {
+
+                    //sometimes httpReq.Scheme might not correctly detect HTTPS, especially behind reverse proxies (like Nginx or Apache). Instead, it sees the internal request as HTTP. So, let us first try to see if we are receiving any xforwarded headers. and then fall back to http.
+
+                    var scheme = httpReq.Headers["X-Forwarded-Proto"].FirstOrDefault() ?? httpReq.Scheme;
                     swaggerDoc.Servers = new List<OpenApiServer> { new OpenApiServer {
-                        Url = $"{httpReq.Scheme}://{httpReq.Host.Value}/{swaggerRoute}" }};
+                        Url = $"{scheme}://{httpReq.Host.Value}/{swaggerRoute}" }};
                 });
             });
 

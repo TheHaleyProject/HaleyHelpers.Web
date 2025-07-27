@@ -274,7 +274,7 @@ namespace Haley.Utils {
                 app.MapControllers();
                 return app;
             } catch (Exception ex) {
-                throw new ArgumentException($@"Unable to generate the WebApplication - {ex.StackTrace}");
+                throw new ArgumentException($@"Unable to generate the WebApplication.{Environment.NewLine}Error : {ex.Message}{Environment.NewLine}Trace : {ex.StackTrace}");
             }
           
         }

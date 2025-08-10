@@ -15,20 +15,20 @@ namespace Haley.Models {
     {
         private readonly FormOptions _defaultFormOptions = new FormOptions();
 
-        Func<IObjectUploadRequest, Task<IObjectCreateResponse>> _fileHandler;
+        Func<IOSSWrite, Task<IOSSResponse>> _fileHandler;
         Func<Dictionary<string,StringValues>, Task<bool>> _dataHandler; 
 
-        public MultiPartUploader(Func<IObjectUploadRequest, Task<IObjectCreateResponse>> fileSectionHandler, Func<Dictionary<string, StringValues>, Task<bool>> dataSectionHandler) {
+        public MultiPartUploader(Func<IOSSWrite, Task<IOSSResponse>> fileSectionHandler, Func<Dictionary<string, StringValues>, Task<bool>> dataSectionHandler) {
             _fileHandler = fileSectionHandler;
             _dataHandler = dataSectionHandler;
         }
 
-        public async Task<MultipartUploadSummary> UploadFileAsync(HttpRequest request, IObjectUploadRequest upRequest)
+        public async Task<MultipartUploadSummary> UploadFileAsync(HttpRequest request, IOSSWrite upRequest)
         {
             return await UploadFileAsync(request.Body, request.ContentType, upRequest);
         }
 
-        public async Task<MultipartUploadSummary> UploadFileAsync(Stream fileStream, string contentType, IObjectUploadRequest upRequest)
+        public async Task<MultipartUploadSummary> UploadFileAsync(Stream fileStream, string contentType, IOSSWrite upRequest)
         {
             if (!IsMultipartContentType(contentType))
             {
@@ -62,16 +62,16 @@ namespace Haley.Models {
                         if (fsection != null) {
                             //DO NOT SEND SAME REQUEST AGAIN AND AGAIN. 
                             // CLONE AND SEND.
-                            var reqClone = upRequest.Clone() as IObjectUploadRequest;
-                            if (reqClone == null) throw new ArgumentException($@"Unable to successfully clone the {nameof(IObjectUploadRequest)} object.");
+                            var reqClone = upRequest.Clone() as IOSSWrite;
+                            if (reqClone == null) throw new ArgumentException($@"Unable to successfully clone the {nameof(IOSSWrite)} object.");
                             //We fill the input request object.
                             //PathMaker is reference type.
                             //Lets make a deep clone of the PathMaker as it is not a primitive type and clone might not work properly
                             reqClone.FileStream = fsection.FileStream;
-                            reqClone.RawName = fsection.FileName; //Not sure what to do with this.
-                            reqClone.Id = fsection.Name; //For repo mode, this becomes the path.
+                            reqClone.FileOriginalName = fsection.FileName; //Not sure what to do with this.
+                            reqClone.SetTargetName(fsection.Name); //For repo mode, this becomes the path.
 
-                            IObjectCreateResponse saveSummary = new ObjectCreateResponse() { Status = false };
+                            IOSSResponse saveSummary = new OSSResponse() { Status = false };
                             try {
                                 saveSummary = await _fileHandler(reqClone);
                             } catch (Exception ex) {

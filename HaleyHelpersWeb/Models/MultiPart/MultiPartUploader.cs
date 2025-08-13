@@ -1,34 +1,36 @@
-﻿using Haley.Models;
-using Microsoft.AspNetCore.WebUtilities;
-
+﻿using Azure.Core;
 //using System.Net.Http.Headers;
 using Haley.Abstractions;
-using Microsoft.Net.Http.Headers;
-using Microsoft.AspNetCore.Http.Features;
-using Azure.Core;
-using System.Text;
+using Haley.Models;
 using Haley.Utils;
+using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Net.Http.Headers;
+using System.Net.Mime;
+using System.Text;
 
 namespace Haley.Models {
     public class MultiPartUploader
     {
         private readonly FormOptions _defaultFormOptions = new FormOptions();
 
-        Func<IOSSWrite, Task<IOSSResponse>> _fileHandler;
+        Func<IOSSWrite, Dictionary<string,StringValues>?, Task<IOSSResponse>> _fileHandler;
         Func<Dictionary<string,StringValues>, Task<bool>> _dataHandler; 
 
-        public MultiPartUploader(Func<IOSSWrite, Task<IOSSResponse>> fileSectionHandler, Func<Dictionary<string, StringValues>, Task<bool>> dataSectionHandler) {
+        public MultiPartUploader(Func<IOSSWrite, Dictionary<string, StringValues>?, Task<IOSSResponse>> fileSectionHandler, Func<Dictionary<string, StringValues>, Task<bool>> dataSectionHandler) {
             _fileHandler = fileSectionHandler;
             _dataHandler = dataSectionHandler;
         }
 
         public async Task<MultipartUploadSummary> UploadFileAsync(HttpRequest request, IOSSWrite upRequest)
         {
+            request.EnableBuffering(); //Since we are turning of the form
+            request.Body.Position = 0;
             return await UploadFileAsync(request.Body, request.ContentType, upRequest);
         }
 
-        public async Task<MultipartUploadSummary> UploadFileAsync(Stream fileStream, string contentType, IOSSWrite upRequest)
+        public async Task<MultipartUploadSummary> UploadFileAsync(Stream stream, string contentType, IOSSWrite upRequest)
         {
             if (!IsMultipartContentType(contentType))
             {
@@ -40,75 +42,84 @@ namespace Haley.Models {
             if (upRequest.BufferSize < 1024) upRequest.BufferSize = 1024;
 
             var boundary = GetBoundary(MediaTypeHeaderValue.Parse(contentType), _defaultFormOptions.MultipartBoundaryLengthLimit);
-            var multipartReader = new MultipartReader(boundary, fileStream, upRequest.BufferSize);
-            var section = await multipartReader.ReadNextSectionAsync();
+            var multipartReader = new MultipartReader(boundary, stream, upRequest.BufferSize);
 
             var formAccumulator = new KeyValueAccumulator();
             MultipartUploadSummary result = new MultipartUploadSummary();
             long sizeUploadedInBytes = 0;
 
-            while (section != null)
-            {
-                var hasDispositionHeader = ContentDispositionHeaderValue.TryParse(section.ContentDisposition, out var contentDisposition);
+            var dataSections = new List<MultipartSection>();
+            var fileSections = new List<MultipartSection>();
 
-                if (hasDispositionHeader && contentDisposition != null)
-                {
-                    //Check if it is file disposition or data disposition
-                    if (HasFileContentDisposition(contentDisposition))
-                    {
-                        if (_fileHandler == null) throw new ArgumentException("Multipart form has File content. FileSectionHandler is mandatory.");
+            var section = await multipartReader.ReadNextSectionAsync();
 
-                        var fsection = section.AsFileSection();
-                        if (fsection != null) {
-                            //DO NOT SEND SAME REQUEST AGAIN AND AGAIN. 
-                            // CLONE AND SEND.
-                            var reqClone = upRequest.Clone() as IOSSWrite;
-                            if (reqClone == null) throw new ArgumentException($@"Unable to successfully clone the {nameof(IOSSWrite)} object.");
-                            //We fill the input request object.
-                            //PathMaker is reference type.
-                            //Lets make a deep clone of the PathMaker as it is not a primitive type and clone might not work properly
-                            reqClone.FileStream = fsection.FileStream;
-                            reqClone.FileOriginalName = fsection.FileName; //Not sure what to do with this.
-                            reqClone.SetTargetName(fsection.Name); //For repo mode, this becomes the path.
-
-                            IOSSResponse saveSummary = new OSSResponse() { Status = false };
-                            try {
-                                saveSummary = await _fileHandler(reqClone);
-                            } catch (Exception ex) {
-                                saveSummary.Message = ex.Message;
-
-                            }
-                            if (saveSummary != null && saveSummary.Status) {
-                                result.Passed++;
-                                sizeUploadedInBytes += saveSummary.Size;
-                                result.PassedObjects.Add(saveSummary);
-                            } else {
-                                result.Failed++;
-                                result.FailedObjects.Add(saveSummary);
-                            }
-
-                        }
-                    }
-                    else if (HasDataContentDisposition(contentDisposition))
-                    {
-                        if (_fileHandler == null) {
-                            throw new ArgumentException("Multipart form has data content. DataSectionHandler is mandatory.");
-                        }
-                        //handle the normal content data.
-                        var formParam = await FormParameterHandlerInternal(section, contentDisposition);
-                        if (!string.IsNullOrWhiteSpace(formParam.key))
-                        {
-                            formAccumulator.Append(formParam.key, formParam.value);
-                        }
+            //Accumulate all sections, so that we can first fetch the information.
+            while (section != null) {
+                if (ContentDispositionHeaderValue.TryParse(section.ContentDisposition,out var cd) && cd != null) {
+                    if (HasDataContentDisposition(cd)) {
+                        dataSections.Add(section);
+                    }else if (HasFileContentDisposition(cd)) {
+                        fileSections.Add(section);
                     }
                 }
                 section = await multipartReader.ReadNextSectionAsync();
             }
-            if (formAccumulator.KeyCount < 1) result.Status = true; //need not worry about data handling.
-            if (formAccumulator.KeyCount > 0)
-            {
-                result.Status = await _dataHandler.Invoke(formAccumulator.GetResults());
+
+            //PHASE 1 : Handle data content first
+            foreach (var dataSection in dataSections) {
+                var contentDisposition = ContentDispositionHeaderValue.Parse(dataSection.ContentDisposition);
+                //handle the normal content data.
+                var formParam = await FormParameterHandlerInternal(dataSection, contentDisposition);
+                if (!string.IsNullOrWhiteSpace(formParam.key)) {
+                    formAccumulator.Append(formParam.key, formParam.value);
+                }
             }
+
+            //PHASE 1-A: INVOKE THE DATA HANDLER FOR PROCESSING.
+            if (formAccumulator.KeyCount > 0 && _dataHandler != null) {
+                result.Status = await _dataHandler.Invoke(formAccumulator.GetResults());
+            } else {
+                result.Status = true; // No data to handle
+            }
+
+            //PHASE 2 : Handle File Sections
+
+            foreach (var fileSection in fileSections) {
+                if (_fileHandler == null) throw new ArgumentException("Multipart form has File content. FileSectionHandler is mandatory.");
+
+                var fsection = fileSection.AsFileSection();
+                if (fsection != null) {
+                    //DO NOT SEND SAME REQUEST AGAIN AND AGAIN. 
+                    // CLONE AND SEND.
+                    var reqClone = upRequest.Clone() as IOSSWrite;
+                    if (reqClone == null) throw new ArgumentException($@"Unable to successfully clone the {nameof(IOSSWrite)} object.");
+                    //We fill the input request object.
+                    //PathMaker is reference type.
+                    //Lets make a deep clone of the PathMaker as it is not a primitive type and clone might not work properly
+                    reqClone.FileStream = fsection.FileStream;
+                    reqClone.FileOriginalName = fsection.FileName; //Not sure what to do with this.
+                    reqClone.SetTargetName(fsection.Name); //For repo mode, this becomes the path.
+
+                    IOSSResponse saveSummary = new OSSResponse() { Status = false };
+                    try {
+                        
+                        saveSummary = await _fileHandler(reqClone, formAccumulator.KeyCount > 0 ? formAccumulator.GetResults() : null);
+                    } catch (Exception ex) {
+                        saveSummary.Message = ex.Message;
+
+                    }
+                    if (saveSummary != null && saveSummary.Status) {
+                        result.Passed++;
+                        sizeUploadedInBytes += saveSummary.Size;
+                        result.PassedObjects.Add(saveSummary);
+                    } else {
+                        result.Failed++;
+                        result.FailedObjects.Add(saveSummary);
+                    }
+
+                }
+            }
+
             result.TotalSizeUploaded = sizeUploadedInBytes.ToFileSize(false);
             return result;
         }
@@ -145,29 +156,42 @@ namespace Haley.Models {
 
         async Task<(string key, string value)> FormParameterHandlerInternal(MultipartSection section, ContentDispositionHeaderValue contentDisposition)
         {
-            string key = string.Empty, value = string.Empty;
-            // Don't limit the key name length because the
-            // multipart headers length limit is already in effect.
-            if (contentDisposition.Name == null) return (key, value);
-            key = HeaderUtilities.RemoveQuotes(contentDisposition.Name!).Value;
-            var encoding = GetEncoding(section);
-            if (encoding == null)
-            {
-                throw new ArgumentException($@"Unable to fetch the encoding for the parameter {key}");
-            }
-
-            using (var streamReader = new StreamReader(section.Body, encoding, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: true))
-            {
-                // The value length limit is enforced by
-                // MultipartBodyLengthLimit
-                value = await streamReader.ReadToEndAsync();
-
-                if (string.Equals(value, "undefined",
-                    StringComparison.OrdinalIgnoreCase))
-                {
-                    value = string.Empty; //In case we are receiving input from
+            try {
+                
+                string key = string.Empty, value = string.Empty;
+                // Don't limit the key name length because the
+                // multipart headers length limit is already in effect.
+                if (contentDisposition.Name == null) return (key, value);
+                key = HeaderUtilities.RemoveQuotes(contentDisposition.Name!).Value;
+                var encoding = GetEncoding(section) ?? Encoding.UTF8;
+                if (encoding == null) {
+                    throw new ArgumentException($@"Unable to fetch the encoding for the parameter {key}");
                 }
-                return (key, value);
+                Stream source = section.Body;
+                //if the stream is already at end, then we buffer it ourselves
+                if (section.Body.Position != 0) {
+                    if (section.Body.CanSeek) {
+                        section.Body.Position = 0; //can seek, so we set it ourselves.
+                    } else {
+                        source = new MemoryStream();
+                        await section.Body.CopyToAsync(source);
+                        source.Position = 0;
+                    }
+                }
+
+                using (var streamReader = new StreamReader(source, encoding, detectEncodingFromByteOrderMarks: true, bufferSize: 4096, leaveOpen: true)) {
+                    // The value length limit is enforced by
+                    // MultipartBodyLengthLimit
+                    value = await streamReader.ReadToEndAsync();
+
+                    if (string.Equals(value, "undefined",
+                        StringComparison.OrdinalIgnoreCase)) {
+                        value = string.Empty; //In case we are receiving input from
+                    }
+                    return (key, value);
+                }
+            } catch (Exception ex) {
+                return (null, null);
             }
         }
 

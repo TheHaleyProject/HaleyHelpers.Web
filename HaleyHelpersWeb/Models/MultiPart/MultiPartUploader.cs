@@ -33,7 +33,15 @@ using static System.Collections.Specialized.BitVector32;
 //fs.Position = 0;
 // Store tempPath or wrap it in a stream for later use
 
+//MultipartReader.ReadNextSectionAsync() is forward-only.
 
+//You can process data sections as they arrive.
+
+//For file sections, you can either:
+
+//    Buffer them to memory/disk immediately and store references.
+
+//    Or stream them directly when you reach Phase 2 (if you don’t need to rewind
 
 namespace Haley.Models {
     public class MultiPartUploader

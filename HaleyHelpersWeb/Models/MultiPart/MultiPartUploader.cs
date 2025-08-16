@@ -9,6 +9,31 @@ using Microsoft.Extensions.Primitives;
 using Microsoft.Net.Http.Headers;
 using System.Net.Mime;
 using System.Text;
+using static System.Collections.Specialized.BitVector32;
+
+//TRY :
+
+//if (HasFileContentDisposition(cd)) {
+//    var fileStream = new MemoryStream();
+//    await section.Body.CopyToAsync(fileStream);
+//    fileStream.Position = 0;
+
+//    fileSections.Add(new MultipartSection {
+//        Body = fileStream,
+//        ContentDisposition = section.ContentDisposition,
+//        Headers = section.Headers
+//    });
+//}
+
+//SET TEMP PATH:
+
+//var tempPath = Path.GetTempFileName();
+//using var fs = new FileStream(tempPath, FileMode.Create, FileAccess.Write);
+//await section.Body.CopyToAsync(fs);
+//fs.Position = 0;
+// Store tempPath or wrap it in a stream for later use
+
+
 
 namespace Haley.Models {
     public class MultiPartUploader

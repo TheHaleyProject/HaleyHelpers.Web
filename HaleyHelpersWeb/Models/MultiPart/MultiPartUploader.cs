@@ -25,9 +25,7 @@ namespace Haley.Models {
 
         public async Task<MultipartUploadSummary> UploadFileAsync(HttpRequest request, IOSSWrite upRequest)
         {
-            request.EnableBuffering(); //Since we are turning of the form
-            request.Body.Position = 0;
-            return await UploadFileAsync(request.Body, request.ContentType, upRequest);
+             return await UploadFileAsync(request.Body, request.ContentType, upRequest);
         }
 
         public async Task<MultipartUploadSummary> UploadFileAsync(Stream stream, string contentType, IOSSWrite upRequest)
@@ -92,6 +90,7 @@ namespace Haley.Models {
                     //DO NOT SEND SAME REQUEST AGAIN AND AGAIN. 
                     // CLONE AND SEND.
                     var reqClone = upRequest.Clone() as IOSSWrite;
+                    reqClone?.GenerateCallId(); //We generate a new call id here itself for the request.
                     if (reqClone == null) throw new ArgumentException($@"Unable to successfully clone the {nameof(IOSSWrite)} object.");
                     //We fill the input request object.
                     //PathMaker is reference type.

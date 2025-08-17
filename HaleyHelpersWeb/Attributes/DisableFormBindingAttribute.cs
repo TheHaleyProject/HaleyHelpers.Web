@@ -27,7 +27,7 @@ namespace Haley.Models {
             var request = context.HttpContext.Request; 
             if (request != null) {
                 request.EnableBuffering(); //Since we are turning of the form
-                request.Body.Position = 0;
+                //request.Body.Position = 0; //Dont' set the body position = 0 here itself, It might prematurely read the body and causes issues.
             }
         }
     }

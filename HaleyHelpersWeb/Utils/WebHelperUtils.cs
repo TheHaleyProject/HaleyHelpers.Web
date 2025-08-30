@@ -1,13 +1,14 @@
 ﻿using Haley.Abstractions;
 using Haley.Enums;
 using Haley.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+using System;
 using System.Linq;
 using System.Net;
 using System.Text;
 using System.Web;
-using System;
 
 namespace Haley.Utils {
     public static class WebHelperUtils {
@@ -69,6 +70,14 @@ namespace Haley.Utils {
             if (string.IsNullOrWhiteSpace(encryptSalt)) encryptSalt = encryptKey; //assign the key as the salt as well
             var decrypted = EncryptionUtils.Decrypt(cookie,encryptKey, encryptSalt);
             return decrypted.FromJson<Dictionary<string, string>>();
+        }
+
+        public static void CreateAuthPolicy(this AuthorizationOptions options, string scheme_name, string policy_name, Action<AuthorizationPolicyBuilder> processor = null) {
+            var policyBuilder = new AuthorizationPolicyBuilder(scheme_name) //Api Key
+                            .RequireAuthenticatedUser();
+
+            processor?.Invoke(policyBuilder);
+            options.AddPolicy(policy_name, policyBuilder.Build());
         }
     }
 }

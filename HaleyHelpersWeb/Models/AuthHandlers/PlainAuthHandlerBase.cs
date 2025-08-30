@@ -1,7 +1,9 @@
 ﻿using Haley.Enums;
 using Haley.Utils;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
+using System.Net.Mime;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 
@@ -13,8 +15,11 @@ namespace Haley.Models {
         protected abstract bool GetToken(out string token);
         protected abstract PlainAuthMode AuthMode { get; set; }
 
-        protected override Task<AuthenticateResult> HandleAuthenticateAsync() {
+        protected override async Task<AuthenticateResult> HandleAuthenticateAsync() {
             try {
+                var endpoint = Context?.GetEndpoint()?.Metadata?.GetMetadata<IAllowAnonymous>();
+                if (endpoint != null) return AuthenticateResult.Success(null);
+
                 var callID = RandomUtils.GetString(32).SanitizeBase64();
                 string reqIP = string.Empty;
                 if (Context != null) {
@@ -25,39 +30,39 @@ namespace Haley.Models {
                 if (Options.Validator == null) {
                     message = "Auth validator is missing";
                     Logger?.LogError($@"{callID} : {message}");
-                    return Task.FromResult(AuthenticateResult.Fail($@"{message}"));
+                    return AuthenticateResult.Fail($@"{message}");
                 }
 
                 if (!GetToken(out var token)) {
                     message = $@"Unable to find a {AuthMode.ToString()} with name {Options.Name}";
                     Logger?.LogError($@"{callID} : {message}");
-                    return Task.FromResult(AuthenticateResult.Fail($@"{message}"));
+                    return AuthenticateResult.Fail($@"{message}");
                 }
 
                 if (string.IsNullOrWhiteSpace(token)) {
                     message = $@"{AuthMode.ToString()} token value cannot be null or empty for {Options.Name}";
                     Logger?.LogError($@"{callID} : {message}");
-                    return Task.FromResult(AuthenticateResult.Fail($@"{message}"));
+                    return AuthenticateResult.Fail($@"{message}");
                 }
 
-                var validation = Options.Validator.Invoke(Context, token, Logger);
-
+                var validation = await Options.Validator.Invoke(Context, token, Logger);
+                
                 if (!validation.Status) {
                     message = $@"Auth Failed. Error: {validation.Message}";
                     Logger?.LogError($@"{callID} : {message}");
-                    return Task.FromResult(AuthenticateResult.Fail($@"{message}"));
+                    return AuthenticateResult.Fail($@"{message}");
                 }
 
                 message = $@"Validation Successful";
                 Logger?.LogError($@"{callID} : {message}");
 
-                var identity = new ClaimsIdentity(validation.Claims, this.Scheme.Name);
+                var identity = new ClaimsIdentity(validation.Result, this.Scheme.Name);
                 var principal = new ClaimsPrincipal(identity);
                 var ticket = new AuthenticationTicket(principal, this.Scheme.Name);
-                return Task.FromResult(AuthenticateResult.Success(ticket));
+                return AuthenticateResult.Success(ticket);
             } catch (Exception ex) {
                 Logger?.LogError($@"Error: {ex.ToString()}");
-                return Task.FromResult(AuthenticateResult.Fail($@"Exception Occured"));
+                return AuthenticateResult.Fail($@"Exception Occured");
             }
         }
     }

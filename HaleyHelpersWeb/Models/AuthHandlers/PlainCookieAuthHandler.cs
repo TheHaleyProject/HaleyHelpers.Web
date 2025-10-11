@@ -5,7 +5,7 @@ using System.Text.Encodings.Web;
 using Haley.Enums;
 
 namespace Haley.Models {
-    public class PlainCookieAuthHandler : PlainAuthHandlerBase {
+    public class PlainCookieAuthHandler : PlainAuthHandlerBase<PlainAuthOptions> {
         public PlainCookieAuthHandler(IOptionsMonitor<PlainAuthOptions> options, ILoggerFactory logger, UrlEncoder encoder, ISystemClock clock) : base(options, logger, encoder, clock) {
         }
 
@@ -13,7 +13,7 @@ namespace Haley.Models {
 
         protected override bool GetToken(out string token) {
             token = string.Empty;
-            if (!this.Request.Cookies.TryGetValue(Options.Name, out var plainCookie)) return false;
+            if (!this.Request.Cookies.TryGetValue(Options.Key, out var plainCookie)) return false;
             token = plainCookie ?? string.Empty;
             return true;
         }

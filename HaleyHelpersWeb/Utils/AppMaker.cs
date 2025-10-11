@@ -1,6 +1,5 @@
 ﻿using Haley.Enums;
 using Haley.Models;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -223,9 +222,9 @@ namespace Haley.Utils {
                 //ADD AUTHENTICATION AND AUTHORIZATION
                 if (input.IncludeDefaultJWTAuth && Globals.JWTParams != null) {
                     builder.Services.AddAuthentication(p => {
-                        p.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-                        p.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-                    }).AddJwtBearer(JWTUtilEx.ConfigureDefaultJWTAuth);
+                        p.DefaultAuthenticateScheme = BaseSchemeNames.DefaultJWT;
+                        p.DefaultChallengeScheme = BaseSchemeNames.DefaultJWT;
+                    }).AddJwtBearerScheme(BaseSchemeNames.DefaultJWT, JWTUtilEx.ConfigureDefaultJWTAuth);
                     builder.Services.AddAuthorization();
                 }
 

@@ -1,7 +1,6 @@
 ﻿using Haley.Abstractions;
 using Haley.Enums;
 using Haley.Utils;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Server.HttpSys;
 using Microsoft.OpenApi.Models;
 using System.Reflection.Metadata.Ecma335;
@@ -32,7 +31,7 @@ namespace Haley.Models {
         internal bool UseAuthentication { get; set; } = false;
         internal bool UseAuthorization { get; set; } = false;
         internal string SwaggerRoute { get; set; }
-        internal List<SwaggerInput> SwaggerSchemes { get; set; } = new List<SwaggerInput> { new SwaggerInput(JwtBearerDefaults.AuthenticationScheme, "Authorization", SecuritySchemeType.Http) };
+        internal List<SwaggerInput> SwaggerSchemes { get; set; } = new List<SwaggerInput> { new SwaggerInput(BaseSchemeNames.DefaultJWT, "Authorization", SecuritySchemeType.Http) };
         public AppMakerInput(string[] args, Func<string[]> configPathsProvider) { Args = args; JsonPathsProvider = configPathsProvider; }
         public AppMakerInput(string[] args) : this(args, null) { }
     }

@@ -1,7 +1,6 @@
 ﻿using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Identity.Client;
 using Haley.Models;
@@ -9,17 +8,15 @@ using Haley.Utils;
 using Microsoft.AspNetCore.DataProtection;
 using System.Text;
 using Azure.Core;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 
 namespace Haley.Utils {
 
     public static class JWTUtilEx {
 
-        public static void ConfigureDefaultJWTAuth(JwtBearerOptions options) {
-            options.RequireHttpsMetadata = false; //HTTPS not required now.
-            options.SaveToken = true;
+        public static void ConfigureDefaultJWTAuth(JwtAuthOptions options) {
             var jwtparams = Globals.JWTParams;
-            options.TokenValidationParameters = JWTUtil.GenerateTokenValidationParams(jwtparams);
+            //options.Params = Globals.JWTParams;
+            options.ValidationParams = JWTUtil.GenerateTokenValidationParams(jwtparams);
         }
 
         public static async Task<JwtSecurityToken> GetJwtToken(this HttpContext input,string key= "access_token") {
@@ -40,6 +37,13 @@ namespace Haley.Utils {
 
         public static async Task<string> GetDBA(this HttpContext context) {
             return await context.GetJwtClaim(JWTClaimType.DBA_KEY);
+        }
+
+        public static AuthenticationBuilder AddJwtBearerScheme(this AuthenticationBuilder builder, string scheme, Action<JwtAuthOptions> configureOptions) {
+            builder.AddScheme<JwtAuthOptions, PlainJwtAuthHandler>(scheme, options => { options.Key = "Bearer "; });
+            // Register named options for this scheme
+            builder.Services.Configure<JwtAuthOptions>(scheme, configureOptions);
+            return builder;
         }
     }
 }

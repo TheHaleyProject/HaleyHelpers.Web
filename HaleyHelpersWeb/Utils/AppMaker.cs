@@ -17,6 +17,7 @@ namespace Haley.Utils {
     public class AppMaker {
         static AppMaker inst = new AppMaker(); //Singleton
         const string LOCALCORS = "localCors";
+        const string SWAGGERROUTE = "swaggerroute";
         public static JWTParameters JWTParams = Globals.JWTParams;
         AppMakerInput appInput;
 
@@ -142,7 +143,19 @@ namespace Haley.Utils {
         }
 
         static void InitiateSwagger(WebApplication app,string swaggerRoute) {
-            if (string.IsNullOrWhiteSpace(swaggerRoute)) {
+            var swgRoute = swaggerRoute;
+            if (string.IsNullOrWhiteSpace(swgRoute)) {
+                try {
+                    //user didn't provide any kind of override. Let us try to check if the variable contains any swagger route.
+                    //var root = ResourceUtils.GenerateConfigurationRoot();
+                    var swgrFb = ResourceUtils.FetchVariable(SWAGGERROUTE);
+                    if (!string.IsNullOrWhiteSpace(swgrFb?.Result?.ToString())) swgRoute = swgrFb?.Result?.ToString();
+                  
+                } catch (Exception ex) {
+                    Console.WriteLine($@"Exception while trying to load the swagger route.");
+                }
+            }
+            if (string.IsNullOrWhiteSpace(swgRoute)) {
                 app.UseSwagger();
                 app.UseSwaggerUI();
                 return; ///Return

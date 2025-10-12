@@ -179,13 +179,13 @@ namespace Haley.Utils {
 
                     var scheme = httpReq.Headers["X-Forwarded-Proto"].FirstOrDefault() ?? httpReq.Scheme;
                     swaggerDoc.Servers = new List<OpenApiServer> { new OpenApiServer {
-                        Url = $"{scheme}://{httpReq.Host.Value}/{swaggerRoute}" }};
+                        Url = $"{scheme}://{httpReq.Host.Value}/{swgRoute}" }};
                 });
             });
 
             app.UseSwaggerUI(c =>
             {
-                c.SwaggerEndpoint($"/{swaggerRoute}/swagger/v1/swagger.json", $"API");
+                c.SwaggerEndpoint($"v1/swagger.json", $"API");
                 c.RoutePrefix = "swagger";
             });
         }

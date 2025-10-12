@@ -7,7 +7,8 @@ namespace Haley.Models {
 
         [FromQuery(Name = "tn")]
         public string? TargetName { get; set; }
-
+        [FromQuery(Name = "pn")]
+        public string? ProcessedName { get; set; }
         [FromQuery(Name = "uid")]
         public string? Cuid { get; set; }
         public VaultFileInfo() {

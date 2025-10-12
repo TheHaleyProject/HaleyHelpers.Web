@@ -17,7 +17,7 @@ namespace Haley.Utils {
         static AppMaker inst = new AppMaker(); //Singleton
         const string LOCALCORS = "localCors";
         const string SWAGGERROUTE = "swaggerroute";
-        public static JWTParameters JWTParams = Globals.JWTParams;
+        public static JWTParameters JWTParams = ResourceUtils.GenerateConfigurationRoot()?.GetSection("Authentication:JWT")?.Get<JWTParameters>();
         AppMakerInput appInput;
 
         public static AppMaker Get(string[] args, Func<string[]> configPathsProvider = null) {
@@ -122,13 +122,22 @@ namespace Haley.Utils {
             var osr = new OpenApiSecurityRequirement();
 
             foreach (var swgInp in swaggerInputs) {
+
+                var sw_sch_name = swgInp.SchemeName;
+
+                if (swgInp.SchemeType == SecuritySchemeType.Http) {
+                    if (sw_sch_name != "bearer" && sw_sch_name != "basic") {
+                        sw_sch_name = "bearer"; //Resetting the scheme name for HTTP
+                    }
+                }
+
                 gen.AddSecurityDefinition(swgInp.SchemeName, new OpenApiSecurityScheme {
                     Name = swgInp.HeaderName,
                     Description = $@"Please provide a JWT Token for policy : {swgInp.SchemeName}",
                     In = ParameterLocation.Header,
                     Type = swgInp.SchemeType,
                     BearerFormat = "JWT",
-                    Scheme = swgInp.SchemeName
+                    Scheme = sw_sch_name
                 });
 
                 osr.Add(new OpenApiSecurityScheme {
@@ -198,11 +207,10 @@ namespace Haley.Utils {
                     allpaths = allpaths.Distinct().ToList(); //Remove duplicates
                 }
 
-                Globals.DBService = input.DBGateway; 
 
                 if (input.DBGateway is AdapterGateway dbs) {
                     dbs.SetConfigurationRoot(allpaths?.ToArray()).Configure().SetServiceUtil(new DBAServiceUtil());
-                    dbs.Updated += Globals.HandleConfigUpdate;
+                    dbs.Updated += ()=> { JWTParams = ResourceUtils.GenerateConfigurationRoot()?.GetSection("Authentication:JWT")?.Get<JWTParameters>(); };
                 }
 
                 builder.Services.AddSingleton<IAdapterGateway>(input.DBGateway);
@@ -220,7 +228,7 @@ namespace Haley.Utils {
                 }
 
                 //ADD AUTHENTICATION AND AUTHORIZATION
-                if (input.IncludeDefaultJWTAuth && Globals.JWTParams != null) {
+                if (input.IncludeDefaultJWTAuth && JWTParams != null) {
                     builder.Services.AddAuthentication(p => {
                         p.DefaultAuthenticateScheme = BaseSchemeNames.DefaultJWT;
                         p.DefaultChallengeScheme = BaseSchemeNames.DefaultJWT;
@@ -289,6 +297,10 @@ namespace Haley.Utils {
                 throw new ArgumentException($@"Unable to generate the WebApplication.{Environment.NewLine}Error : {ex.Message}{Environment.NewLine}Trace : {ex.StackTrace}");
             }
           
+        }
+
+        private static void Dbs_Updated() {
+            throw new NotImplementedException();
         }
     }
 }

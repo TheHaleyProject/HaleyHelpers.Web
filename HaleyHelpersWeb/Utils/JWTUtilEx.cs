@@ -14,7 +14,7 @@ namespace Haley.Utils {
     public static class JWTUtilEx {
 
         public static void ConfigureDefaultJWTAuth(JwtAuthOptions options) {
-            var jwtparams = Globals.JWTParams;
+            var jwtparams = AppMaker.JWTParams;
             //options.Params = Globals.JWTParams;
             options.ValidationParams = JWTUtil.GenerateTokenValidationParams(jwtparams);
         }
@@ -40,7 +40,7 @@ namespace Haley.Utils {
         }
 
         public static AuthenticationBuilder AddJwtBearerScheme(this AuthenticationBuilder builder, string scheme, Action<JwtAuthOptions> configureOptions) {
-            builder.AddScheme<JwtAuthOptions, PlainJwtAuthHandler>(scheme, options => { options.Key = "Bearer "; });
+            builder.AddScheme<JwtAuthOptions, PlainJwtAuthHandler>(scheme, options => { }); //Dont set the options, here, otherwise, it will override, the options monitor
             // Register named options for this scheme
             builder.Services.Configure<JwtAuthOptions>(scheme, configureOptions);
             return builder;

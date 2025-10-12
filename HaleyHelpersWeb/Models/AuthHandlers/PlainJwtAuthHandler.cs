@@ -41,6 +41,7 @@ namespace Haley.Models {
 
             try {
                 var principal = JWTUtil.ValidateToken(t, jwtOptions.ValidationParams, out var validatedToken);
+                if (principal == null) return AuthenticateResult.Fail($"Unable to generate the principal");
                 var ticket = new AuthenticationTicket(principal, Scheme.Name);
                 return AuthenticateResult.Success(ticket);
             } catch (Exception ex) {

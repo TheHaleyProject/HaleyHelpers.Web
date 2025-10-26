@@ -48,181 +48,224 @@ namespace Haley.Models {
     {
         private readonly FormOptions _defaultFormOptions = new FormOptions();
 
-        Func<IOSSWrite, Dictionary<string,StringValues>?, Task<IOSSResponse>> _fileHandler;
-        Func<Dictionary<string,StringValues>, Task<bool>> _dataHandler; 
+        Func<IOSSWrite, Dictionary<string,StringValues>?, string /*content-disposition key*/, Task<IOSSResponse>> _fileHandler;
+        Func<Dictionary<string,StringValues>, Task<bool>> _dataHandler;
+        Func<string /*filename*/, string /*contenttype*/ , Task<IFeedback<long?>>> _validationHandler;
+        long _defaultMaxFileSizeinMb = 50;
 
-        public MultiPartUploader(Func<IOSSWrite, Dictionary<string, StringValues>?, Task<IOSSResponse>> fileSectionHandler, Func<Dictionary<string, StringValues>, Task<bool>> dataSectionHandler) {
-            _fileHandler = fileSectionHandler;
-            _dataHandler = dataSectionHandler;
+        public MultiPartUploader(Func<IOSSWrite, Dictionary<string, StringValues>?,string, Task<IOSSResponse>> fileSectionHandler, Func<Dictionary<string, StringValues>, Task<bool>> dataSectionHandler, Func<string, string, Task<IFeedback<long?>>> validationHandler, int? max_size) {
+            _fileHandler = fileSectionHandler ?? throw new ArgumentNullException(nameof(fileSectionHandler));
+            _dataHandler = dataSectionHandler; //Can be empty, we dont need them
+            _validationHandler = validationHandler; //Can be empty.
+            _defaultMaxFileSizeinMb = max_size ?? 50;
+            if (_defaultMaxFileSizeinMb < 1) _defaultMaxFileSizeinMb = 1;
+            //if (_defaultMaxFileSizeinMb > 10000) _defaultMaxFileSizeinMb = 10000; // 10 GB limit
         }
 
         public async Task<MultipartUploadSummary> UploadFileAsync(HttpRequest request, IOSSWrite upRequest)
         {
              return await UploadFileAsync(request.Body, request.ContentType, upRequest);
         }
-
-        public async Task<MultipartUploadSummary> UploadFileAsync(Stream stream, string contentType, IOSSWrite upRequest)
-        {
+     
+        public async Task<MultipartUploadSummary> UploadFileAsync(Stream stream, string contentType, IOSSWrite upRequest) {
             if (!IsMultipartContentType(contentType))
-            {
-                throw new Exception($"Expected a multipart request, but got {contentType}");
-            }
+                throw new Exception($"Expected multipart request, got {contentType}");
 
-            if (upRequest == null) throw new Exception("Object upload request cannot be empty");
+            if (upRequest == null)
+                throw new Exception("Upload request cannot be null.");
 
-            if (upRequest.BufferSize < 1024) upRequest.BufferSize = 1024;
+            if (upRequest.BufferSize < 1024)
+                upRequest.BufferSize = 1024;
 
             var boundary = GetBoundary(MediaTypeHeaderValue.Parse(contentType), _defaultFormOptions.MultipartBoundaryLengthLimit);
-            var multipartReader = new MultipartReader(boundary, stream, upRequest.BufferSize);
+            var reader = new MultipartReader(boundary, stream, upRequest.BufferSize);
 
-            var formAccumulator = new KeyValueAccumulator();
+            
             MultipartUploadSummary result = new MultipartUploadSummary();
-            long sizeUploadedInBytes = 0;
 
-            var dataSections = new List<MultipartSection>();
-            var fileSections = new List<MultipartSection>();
+            var dataSections = new List<(string Key, string Value)>();
+            var fileSections = new List<(string FileName, string TempPath, string cd_key, string ContentType)>();
 
-            var section = await multipartReader.ReadNextSectionAsync();
+            await ReadSections(reader, result, dataSections, fileSections);
+            long totalBytesUploaded = await UploadFileAsync(result, upRequest, dataSections, fileSections);
 
-            //Accumulate all sections, so that we can first fetch the information.
-            while (section != null) {
-                if (ContentDispositionHeaderValue.TryParse(section.ContentDisposition,out var cd) && cd != null) {
-                    if (HasDataContentDisposition(cd)) {
-                        dataSections.Add(section);
-                    }else if (HasFileContentDisposition(cd)) {
-                        fileSections.Add(section);
-                    }
-                }
-                section = await multipartReader.ReadNextSectionAsync();
-            }
+            result.TotalSizeUploaded = totalBytesUploaded.ToFileSize(false);
+            //Before we send the result out, we can take everythign and convert the file to readable sizes.
+            //result.PassedObjects.ForEach(p => {
+            //    if (p.Size > 0) p.SizeHR = p.Size.ToFileSize(false);
+            //});
+            return result;
+        }
 
-            //PHASE 1 : Handle data content first
-            foreach (var dataSection in dataSections) {
-                var contentDisposition = ContentDispositionHeaderValue.Parse(dataSection.ContentDisposition);
-                //handle the normal content data.
-                var formParam = await FormParameterHandlerInternal(dataSection, contentDisposition);
-                if (!string.IsNullOrWhiteSpace(formParam.key)) {
-                    formAccumulator.Append(formParam.key, formParam.value);
-                }
-            }
+        async Task<long> UploadFileAsync(MultipartUploadSummary result, IOSSWrite upRequest, List<(string Key, string Value)> dataSections, List<(string FileName, string TempPath, string cd_key, string ContentType)> fileSections) {
+            long totalBytesUploaded = 0;
 
-            //PHASE 1-A: INVOKE THE DATA HANDLER FOR PROCESSING.
+            // ---- Handle metadata ----
+            var formAccumulator = new KeyValueAccumulator();
+            foreach (var kv in dataSections) formAccumulator.Append(kv.Key, kv.Value);
+
             if (formAccumulator.KeyCount > 0 && _dataHandler != null) {
                 result.Status = await _dataHandler.Invoke(formAccumulator.GetResults());
             } else {
-                result.Status = true; // No data to handle
+                result.Status = true;
             }
 
-            //PHASE 2 : Handle File Sections
+            // ---- Handle file uploads ----
+            foreach (var file in fileSections) {
+                if (_fileHandler == null) throw new ArgumentException("File handler is mandatory.");
 
-            foreach (var fileSection in fileSections) {
-                if (_fileHandler == null) throw new ArgumentException("Multipart form has File content. FileSectionHandler is mandatory.");
+                var reqClone = upRequest.Clone() as IOSSWrite;
+                reqClone?.GenerateCallId(); //For tracking purpose and also to use it for all the transactions associated with this.
+                if (reqClone == null) throw new ArgumentException($"Unable to clone {nameof(IOSSWrite)} object.");
 
-                var fsection = fileSection.AsFileSection();
-                if (fsection != null) {
-                    //DO NOT SEND SAME REQUEST AGAIN AND AGAIN. 
-                    // CLONE AND SEND.
-                    var reqClone = upRequest.Clone() as IOSSWrite;
-                    reqClone?.GenerateCallId(); //We generate a new call id here itself for the request.
-                    if (reqClone == null) throw new ArgumentException($@"Unable to successfully clone the {nameof(IOSSWrite)} object.");
-                    //We fill the input request object.
-                    //PathMaker is reference type.
-                    //Lets make a deep clone of the PathMaker as it is not a primitive type and clone might not work properly
-                    reqClone.FileStream = fsection.FileStream;
-                    reqClone.FileOriginalName = fsection.FileName; //Not sure what to do with this.
-                    reqClone.SetTargetName(fsection.Name); //For repo mode, this becomes the path.
+                await using var tempStream = new FileStream(file.TempPath, FileMode.Open, FileAccess.Read);
+                reqClone.FileStream = tempStream;
+                reqClone.FileOriginalName = file.FileName;
+                reqClone.SetTargetName(file.FileName);
 
-                    IOSSResponse saveSummary = new OSSResponse() { Status = false };
-                    try {
-                        
-                        saveSummary = await _fileHandler(reqClone, formAccumulator.KeyCount > 0 ? formAccumulator.GetResults() : null);
-                    } catch (Exception ex) {
-                        saveSummary.Message = ex.Message;
+                IOSSResponse saveSummary = new OSSResponse() { Status = false };
+                try {
+                    saveSummary = await _fileHandler(reqClone, formAccumulator.KeyCount > 0 ? formAccumulator.GetResults() : null,file.cd_key);
+                } catch (Exception ex) {
+                    saveSummary.Message = ex.Message;
+                }
 
+                if (saveSummary != null && saveSummary.Status) {
+                    result.Passed++;
+                    totalBytesUploaded += saveSummary.Size;
+                    result.PassedObjects.Add(saveSummary);
+                } else {
+                    result.Failed++;
+                    result.FailedObjects.Add(saveSummary);
+                }
+                DeleteTemporaryFile(file.TempPath);
+            }
+            return totalBytesUploaded;
+        }
+
+        void DeleteTemporaryFile(string path) {
+            if (string.IsNullOrWhiteSpace(path)) return;
+            //Reason why we have the _ = . Without that the compilers will return a warning that this method is not awaited. For us, it is a fire and forget task. We dont' want to await it. So, to supress that warning and also to inform the compilers that it is intentially left as is, we use the _=
+            _ = Task.Run(async () => {
+                try {
+                    await path.TryDeleteFile(3);
+                } catch {
+                    //Ignore;
+                }
+            });
+        }
+
+        async Task ReadSections(MultipartReader reader, MultipartUploadSummary result, List<(string Key, string Value)> dataSections, List<(string FileName, string TempPath, string cd_key, string ContentType)> fileSections) {
+            MultipartSection section;
+            while ((section = await reader.ReadNextSectionAsync()) != null) {
+
+                if (!ContentDispositionHeaderValue.TryParse(section.ContentDisposition, out var cd))
+                    continue;
+
+                // 1️. Data sections
+                if (HasDataContentDisposition(cd)) {
+                    var (key, value) = await ReadFormDataAsync(section, cd);
+                    if (!string.IsNullOrEmpty(key)) dataSections.Add((key, value));
+                    continue;
+                }
+
+                // 2️. File sections
+            
+                if (HasFileContentDisposition(cd)) {
+                    var fileName = cd.FileNameStar.HasValue ? cd.FileNameStar.Value : cd.FileName.Value;
+                    var cdname = cd.Name.ToString() ?? string.Empty; //Get the key name.
+
+                    fileName = Path.GetFileName(fileName); // sanitize
+
+                    var sectionContentType = section.ContentType;
+
+                    if (string.IsNullOrWhiteSpace(sectionContentType) && section.Headers.TryGetValue("Content-Type", out var headerVal)) {
+                        sectionContentType = headerVal.ToString();
                     }
-                    if (saveSummary != null && saveSummary.Status) {
-                        result.Passed++;
-                        sizeUploadedInBytes += saveSummary.Size;
-                        result.PassedObjects.Add(saveSummary);
-                    } else {
-                        result.Failed++;
-                        result.FailedObjects.Add(saveSummary);
+
+                    IFeedback<long?> validationFb = null;
+
+                    // ---- External validation ----
+                    if (_validationHandler != null) {
+                        validationFb = await _validationHandler.Invoke(fileName, sectionContentType);
+                        if (!validationFb.Status) {
+                            var failedResponse = new OSSResponse {
+                                RawName = fileName,
+                                Status = false,
+                                Message = $"File '{fileName}' rejected by validation handler. Reason {validationFb.Message}"
+                            };
+                            result.Failed++;
+                            result.FailedObjects.Add(failedResponse);
+                            continue; // move to next section
+                        }
                     }
 
+                    // ---- Write to temporary file ----
+                    var tempPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N")); //In linux, we write this to /tmp/ (if used inside the container, its much better, because we store only inside the container, and not persisted anywhere.. We can even clean up all the temp folders later.
+
+                    long maxAllowed = validationFb?.Result ?? _defaultMaxFileSizeinMb;
+                    if (maxAllowed < 0) maxAllowed = 1; //We cannot allow them to say, max allowed is less than 1 mb.
+                    maxAllowed = maxAllowed * 1024 * 1024; //In Bytes.
+
+                    long totalRead = 0;
+                    var buffer = new byte[81920];
+                    bool skipFile = false;
+                    await using (var fs = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None)) {
+                        int read;
+                        while ((read = await section.Body.ReadAsync(buffer, 0, buffer.Length)) > 0) {
+                            totalRead += read;
+
+                            // Check file size while streaming
+                            if (totalRead > maxAllowed) {
+                                fs.Dispose(); 
+                                //Delete file here itself.
+                                DeleteTemporaryFile(tempPath);
+
+                                var failedResponse = new OSSResponse {
+                                    RawName = fileName,
+                                    Status = false,
+                                    Message = $"File '{fileName}' exceeds default limit {maxAllowed / 1024 / 1024} MB."
+                                };
+                                result.Failed++;
+                                result.FailedObjects.Add(failedResponse);
+                                skipFile = true;
+                                break;
+                            }
+                            await fs.WriteAsync(buffer.AsMemory(0, read)); //Write the file to local
+                        }
+                    }
+
+                    if (skipFile) continue; //Continue to next section.
+
+                    fileSections.Add((fileName, tempPath,cdname, sectionContentType));
                 }
             }
-
-            result.TotalSizeUploaded = sizeUploadedInBytes.ToFileSize(false);
-            return result;
         }
 
         // Content-Type: multipart/form-data; boundary="----WebKitFormBoundarymx2fSWqWSd0OxQqq"
         // The spec says 70 characters is a reasonable limit.
-        string GetBoundary(MediaTypeHeaderValue contentType, int lengthLimit)
-        {
+        string GetBoundary(MediaTypeHeaderValue contentType, int lengthLimit) {
             var boundary = HeaderUtilities.RemoveQuotes(contentType.Boundary);
-            if (string.IsNullOrWhiteSpace(boundary.Value))
-            {
-                throw new InvalidDataException("Missing content-type boundary.");
-            }
-
-            if (boundary.Length > lengthLimit)
-            {
-                throw new InvalidDataException(
-                    $"Multipart boundary length limit {lengthLimit} exceeded.");
-            }
-
+            if (string.IsNullOrWhiteSpace(boundary.Value)) throw new InvalidDataException("Missing content-type boundary.");
+            if (boundary.Length > lengthLimit) throw new InvalidDataException($"Multipart boundary length limit {lengthLimit} exceeded.");
             return boundary.Value;
         }
 
-        Encoding GetEncoding(MultipartSection section)
-        {
+        Encoding GetEncoding(MultipartSection section) {
             var hasMediaTypeHeader = MediaTypeHeaderValue.TryParse(section.ContentType, out var mediaType);
             // UTF-7 is insecure and should not be honored. UTF-8 will succeed in most cases.
-            if (!hasMediaTypeHeader || Encoding.UTF7.Equals(mediaType.Encoding))
-            {
-                return Encoding.UTF8;
-            }
+            if (!hasMediaTypeHeader || Encoding.UTF7.Equals(mediaType.Encoding)) return Encoding.UTF8;
             return mediaType.Encoding;
         }
 
-        async Task<(string key, string value)> FormParameterHandlerInternal(MultipartSection section, ContentDispositionHeaderValue contentDisposition)
-        {
+         async Task<(string key, string value)> ReadFormDataAsync(MultipartSection section, ContentDispositionHeaderValue cd) {
             try {
-                
-                string key = string.Empty, value = string.Empty;
-                // Don't limit the key name length because the
-                // multipart headers length limit is already in effect.
-                if (contentDisposition.Name == null) return (key, value);
-                key = HeaderUtilities.RemoveQuotes(contentDisposition.Name!).Value;
-                var encoding = GetEncoding(section) ?? Encoding.UTF8;
-                if (encoding == null) {
-                    throw new ArgumentException($@"Unable to fetch the encoding for the parameter {key}");
-                }
-                Stream source = section.Body;
-                //if the stream is already at end, then we buffer it ourselves
-                if (section.Body.Position != 0) {
-                    if (section.Body.CanSeek) {
-                        section.Body.Position = 0; //can seek, so we set it ourselves.
-                    } else {
-                        source = new MemoryStream();
-                        await section.Body.CopyToAsync(source);
-                        source.Position = 0;
-                    }
-                }
-
-                using (var streamReader = new StreamReader(source, encoding, detectEncodingFromByteOrderMarks: true, bufferSize: 4096, leaveOpen: true)) {
-                    // The value length limit is enforced by
-                    // MultipartBodyLengthLimit
-                    value = await streamReader.ReadToEndAsync();
-
-                    if (string.Equals(value, "undefined",
-                        StringComparison.OrdinalIgnoreCase)) {
-                        value = string.Empty; //In case we are receiving input from
-                    }
-                    return (key, value);
-                }
-            } catch (Exception ex) {
+                string key = HeaderUtilities.RemoveQuotes(cd.Name!).Value;
+                var encoding = GetEncoding(section);
+                using var reader = new StreamReader(section.Body, encoding, detectEncodingFromByteOrderMarks: true, leaveOpen: true);
+                var value = await reader.ReadToEndAsync();
+                return (key, value == "undefined" ? string.Empty : value);
+            } catch {
                 return (null, null);
             }
         }
@@ -250,6 +293,5 @@ namespace Haley.Models {
             return !string.IsNullOrEmpty(contentType)
                    && contentType.IndexOf("multipart/", StringComparison.OrdinalIgnoreCase) >= 0;
         }
-
     }
 }

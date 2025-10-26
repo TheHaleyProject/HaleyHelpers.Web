@@ -47,13 +47,12 @@ namespace Haley.Models {
     public class MultiPartUploader
     {
         private readonly FormOptions _defaultFormOptions = new FormOptions();
-
-        Func<IOSSWrite, Dictionary<string,StringValues>?, string /*content-disposition key*/, Task<IOSSResponse>> _fileHandler;
-        Func<Dictionary<string,StringValues>, Task<bool>> _dataHandler;
-        Func<string /*filename*/, string /*contenttype*/ , Task<IFeedback<long?>>> _validationHandler;
+        Func<MultipartFileInfo, Task<IOSSResponse>> _fileHandler;
+        Func<MultipartDataInfo, Task<bool>> _dataHandler;
+        Func<MultipartValidationInfo , Task<IFeedback<long?>>> _validationHandler;
         long _defaultMaxFileSizeinMb = 50;
 
-        public MultiPartUploader(Func<IOSSWrite, Dictionary<string, StringValues>?,string, Task<IOSSResponse>> fileSectionHandler, Func<Dictionary<string, StringValues>, Task<bool>> dataSectionHandler, Func<string, string, Task<IFeedback<long?>>> validationHandler, int? max_size) {
+        public MultiPartUploader(Func<MultipartFileInfo, Task<IOSSResponse>> fileSectionHandler, Func<MultipartDataInfo, Task<bool>> dataSectionHandler, Func<MultipartValidationInfo, Task<IFeedback<long?>>> validationHandler, int? max_size) {
             _fileHandler = fileSectionHandler ?? throw new ArgumentNullException(nameof(fileSectionHandler));
             _dataHandler = dataSectionHandler; //Can be empty, we dont need them
             _validationHandler = validationHandler; //Can be empty.
@@ -101,13 +100,20 @@ namespace Haley.Models {
             long totalBytesUploaded = 0;
 
             // ---- Handle metadata ----
+            MultipartDataInfo dataInfo = null;
             var formAccumulator = new KeyValueAccumulator();
             foreach (var kv in dataSections) formAccumulator.Append(kv.Key, kv.Value);
+            if(formAccumulator.KeyCount > 0) dataInfo = new MultipartDataInfo(formAccumulator.GetResults());
 
-            if (formAccumulator.KeyCount > 0 && _dataHandler != null) {
-                result.Status = await _dataHandler.Invoke(formAccumulator.GetResults());
+            if (dataInfo != null && _dataHandler != null) {
+                result.Status = await _dataHandler.Invoke(dataInfo);
             } else {
-                result.Status = true;
+                result.Status = true; //Based on the data, we might need to proceed or not. If there is no data handler, we assume everything is fine.
+            }
+
+            if (!result.Status) {
+                result.Message = "Data validation failed. Upload aborted.";
+                return 0;
             }
 
             // ---- Handle file uploads ----
@@ -125,7 +131,12 @@ namespace Haley.Models {
 
                 IOSSResponse saveSummary = new OSSResponse() { Status = false };
                 try {
-                    saveSummary = await _fileHandler(reqClone, formAccumulator.KeyCount > 0 ? formAccumulator.GetResults() : null,file.cd_key);
+                    var fileInfo = new MultipartFileInfo() {
+                        Request = reqClone,
+                        DataInfo = dataInfo!,
+                        ContentDispositionKey = file.cd_key
+                    };
+                    saveSummary = await _fileHandler(fileInfo);
                 } catch (Exception ex) {
                     saveSummary.Message = ex.Message;
                 }
@@ -187,7 +198,7 @@ namespace Haley.Models {
 
                     // ---- External validation ----
                     if (_validationHandler != null) {
-                        validationFb = await _validationHandler.Invoke(fileName, sectionContentType);
+                        validationFb = await _validationHandler.Invoke(new MultipartValidationInfo() { FileName = fileName, ContentType = sectionContentType});
                         if (!validationFb.Status) {
                             var failedResponse = new OSSResponse {
                                 RawName = fileName,

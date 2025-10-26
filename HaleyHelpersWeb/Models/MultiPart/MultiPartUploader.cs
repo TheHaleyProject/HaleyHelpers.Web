@@ -6,6 +6,7 @@ using Haley.Utils;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Identity.Client;
 using Microsoft.Net.Http.Headers;
 using System.Net.Mime;
 using System.Text;
@@ -50,14 +51,15 @@ namespace Haley.Models {
         Func<MultipartFileInfo, Task<IOSSResponse>> _fileHandler;
         Func<MultipartDataInfo, Task<bool>> _dataHandler;
         Func<MultipartValidationInfo , Task<IFeedback<long?>>> _validationHandler;
-        long _defaultMaxFileSizeinMb = 50;
-
-        public MultiPartUploader(Func<MultipartFileInfo, Task<IOSSResponse>> fileSectionHandler, Func<MultipartDataInfo, Task<bool>> dataSectionHandler, Func<MultipartValidationInfo, Task<IFeedback<long?>>> validationHandler, int? max_size) {
+        long _defaultMaxFileSizeinMb = 0;
+        bool _throwExceptions = false;
+        public MultiPartUploader(Func<MultipartFileInfo, Task<IOSSResponse>> fileSectionHandler, Func<MultipartDataInfo, Task<bool>> dataSectionHandler, Func<MultipartValidationInfo, Task<IFeedback<long?>>> validationHandler, int? max_size, bool throwExceptions) {
             _fileHandler = fileSectionHandler ?? throw new ArgumentNullException(nameof(fileSectionHandler));
             _dataHandler = dataSectionHandler; //Can be empty, we dont need them
             _validationHandler = validationHandler; //Can be empty.
-            _defaultMaxFileSizeinMb = max_size ?? 50;
-            if (_defaultMaxFileSizeinMb < 1) _defaultMaxFileSizeinMb = 1;
+            _defaultMaxFileSizeinMb = max_size ?? 0;
+            if (_defaultMaxFileSizeinMb < 0) _defaultMaxFileSizeinMb = 0; //Zero stands for unlimited.
+            _throwExceptions = throwExceptions;
             //if (_defaultMaxFileSizeinMb > 10000) _defaultMaxFileSizeinMb = 10000; // 10 GB limit
         }
 
@@ -67,33 +69,36 @@ namespace Haley.Models {
         }
      
         public async Task<MultipartUploadSummary> UploadFileAsync(Stream stream, string contentType, IOSSWrite upRequest) {
-            if (!IsMultipartContentType(contentType))
-                throw new Exception($"Expected multipart request, got {contentType}");
-
-            if (upRequest == null)
-                throw new Exception("Upload request cannot be null.");
-
-            if (upRequest.BufferSize < 1024)
-                upRequest.BufferSize = 1024;
-
-            var boundary = GetBoundary(MediaTypeHeaderValue.Parse(contentType), _defaultFormOptions.MultipartBoundaryLengthLimit);
-            var reader = new MultipartReader(boundary, stream, upRequest.BufferSize);
-
-            
-            MultipartUploadSummary result = new MultipartUploadSummary();
-
             var dataSections = new List<(string Key, string Value)>();
             var fileSections = new List<(string FileName, string TempPath, string cd_key, string ContentType)>();
+            try {
+                if (!IsMultipartContentType(contentType))
+                    throw new Exception($"Expected multipart request, got {contentType}");
 
-            await ReadSections(reader, result, dataSections, fileSections);
-            long totalBytesUploaded = await UploadFileAsync(result, upRequest, dataSections, fileSections);
+                if (upRequest == null)
+                    throw new Exception("Upload request cannot be null.");
+               
+                if (upRequest.BufferSize < (1024*1024)) upRequest.BufferSize = (1024 * 1024); //We need a minimum buffer of 1 MB, Since we know for a fact that the files are first stored to temp files, we can have a reasonable buffer size of 1MB.
 
-            result.TotalSizeUploaded = totalBytesUploaded.ToFileSize(false);
-            //Before we send the result out, we can take everythign and convert the file to readable sizes.
-            //result.PassedObjects.ForEach(p => {
-            //    if (p.Size > 0) p.SizeHR = p.Size.ToFileSize(false);
-            //});
-            return result;
+                var boundary = GetBoundary(MediaTypeHeaderValue.Parse(contentType), _defaultFormOptions.MultipartBoundaryLengthLimit);
+                var reader = new MultipartReader(boundary, stream, upRequest.BufferSize);
+
+                MultipartUploadSummary result = new MultipartUploadSummary();
+                
+                await ReadSections(reader, result, dataSections, fileSections);
+                long totalBytesUploaded = await UploadFileAsync(result, upRequest, dataSections, fileSections);
+
+                result.TotalSizeUploaded = totalBytesUploaded.ToFileSize(false);
+                //Before we send the result out, we can take everythign and convert the file to readable sizes.
+                //result.PassedObjects.ForEach(p => {
+                //    if (p.Size > 0) p.SizeHR = p.Size.ToFileSize(false);
+                //});
+                return result;
+            } finally {
+                foreach (var item in fileSections) {
+                    item.TempPath?.TryDeleteFile();
+                }
+            }
         }
 
         async Task<long> UploadFileAsync(MultipartUploadSummary result, IOSSWrite upRequest, List<(string Key, string Value)> dataSections, List<(string FileName, string TempPath, string cd_key, string ContentType)> fileSections) {
@@ -168,89 +173,97 @@ namespace Haley.Models {
 
         async Task ReadSections(MultipartReader reader, MultipartUploadSummary result, List<(string Key, string Value)> dataSections, List<(string FileName, string TempPath, string cd_key, string ContentType)> fileSections) {
             MultipartSection section;
-            while ((section = await reader.ReadNextSectionAsync()) != null) {
+                while ((section = await reader.ReadNextSectionAsync()) != null) {
 
-                if (!ContentDispositionHeaderValue.TryParse(section.ContentDisposition, out var cd))
-                    continue;
+                    if (!ContentDispositionHeaderValue.TryParse(section.ContentDisposition, out var cd))
+                        continue;
 
-                // 1️. Data sections
-                if (HasDataContentDisposition(cd)) {
-                    var (key, value) = await ReadFormDataAsync(section, cd);
-                    if (!string.IsNullOrEmpty(key)) dataSections.Add((key, value));
-                    continue;
-                }
-
-                // 2️. File sections
-            
-                if (HasFileContentDisposition(cd)) {
-                    var fileName = cd.FileNameStar.HasValue ? cd.FileNameStar.Value : cd.FileName.Value;
-                    var cdname = cd.Name.ToString() ?? string.Empty; //Get the key name.
-
-                    fileName = Path.GetFileName(fileName); // sanitize
-
-                    var sectionContentType = section.ContentType;
-
-                    if (string.IsNullOrWhiteSpace(sectionContentType) && section.Headers.TryGetValue("Content-Type", out var headerVal)) {
-                        sectionContentType = headerVal.ToString();
+                    // 1️. Data sections
+                    if (HasDataContentDisposition(cd)) {
+                        var (key, value) = await ReadFormDataAsync(section, cd);
+                        if (!string.IsNullOrEmpty(key)) dataSections.Add((key, value));
+                        continue;
                     }
 
-                    IFeedback<long?> validationFb = null;
+                    // 2️. File sections
 
-                    // ---- External validation ----
-                    if (_validationHandler != null) {
-                        validationFb = await _validationHandler.Invoke(new MultipartValidationInfo() { FileName = fileName, ContentType = sectionContentType});
-                        if (!validationFb.Status) {
-                            var failedResponse = new OSSResponse {
-                                RawName = fileName,
-                                Status = false,
-                                Message = $"File '{fileName}' rejected by validation handler. Reason {validationFb.Message}"
-                            };
-                            result.Failed++;
-                            result.FailedObjects.Add(failedResponse);
-                            continue; // move to next section
+                    if (HasFileContentDisposition(cd)) {
+                        var fileName = cd.FileNameStar.HasValue ? cd.FileNameStar.Value : cd.FileName.Value;
+                        var cdname = cd.Name.ToString() ?? string.Empty; //Get the key name.
+
+                        fileName = Path.GetFileName(fileName); // sanitize
+
+                        var sectionContentType = section.ContentType;
+
+                        if (string.IsNullOrWhiteSpace(sectionContentType) && section.Headers.TryGetValue("Content-Type", out var headerVal)) {
+                            sectionContentType = headerVal.ToString();
                         }
-                    }
 
-                    // ---- Write to temporary file ----
-                    var tempPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N")); //In linux, we write this to /tmp/ (if used inside the container, its much better, because we store only inside the container, and not persisted anywhere.. We can even clean up all the temp folders later.
+                        IFeedback<long?> validationFb = null;
 
-                    long maxAllowed = validationFb?.Result ?? _defaultMaxFileSizeinMb;
-                    if (maxAllowed < 0) maxAllowed = 1; //We cannot allow them to say, max allowed is less than 1 mb.
-                    maxAllowed = maxAllowed * 1024 * 1024; //In Bytes.
-
-                    long totalRead = 0;
-                    var buffer = new byte[81920];
-                    bool skipFile = false;
-                    await using (var fs = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None)) {
-                        int read;
-                        while ((read = await section.Body.ReadAsync(buffer, 0, buffer.Length)) > 0) {
-                            totalRead += read;
-
-                            // Check file size while streaming
-                            if (totalRead > maxAllowed) {
-                                fs.Dispose(); 
-                                //Delete file here itself.
-                                DeleteTemporaryFile(tempPath);
-
+                        // ---- External validation ----
+                        if (_validationHandler != null) {
+                            validationFb = await _validationHandler.Invoke(new MultipartValidationInfo() { FileName = fileName, ContentType = sectionContentType });
+                            if (!validationFb.Status) {
+                                var msg = $"File '{fileName}' rejected by validation handler. Reason {validationFb.Message}";
+                                if (_throwExceptions) throw new Exception(msg);
                                 var failedResponse = new OSSResponse {
                                     RawName = fileName,
                                     Status = false,
-                                    Message = $"File '{fileName}' exceeds default limit {maxAllowed / 1024 / 1024} MB."
+                                    Message = msg
                                 };
                                 result.Failed++;
                                 result.FailedObjects.Add(failedResponse);
-                                skipFile = true;
-                                break;
+
+                                //Note that the skipping or ccontinue doesn't guarantee magically jumping to next section. Either we throw an exception or wait it through.
+                                await section.Body.CopyToAsync(Stream.Null); // discard rejected file
+                                continue; // move to next section
                             }
-                            await fs.WriteAsync(buffer.AsMemory(0, read)); //Write the file to local
                         }
+
+                        // ---- Write to temporary file ----
+                        var tempPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N")); //In linux, we write this to /tmp/ (if used inside the container, its much better, because we store only inside the container, and not persisted anywhere.. We can even clean up all the temp folders later.
+
+                        long maxAllowed = validationFb?.Result ?? _defaultMaxFileSizeinMb;
+                        if (maxAllowed < 0) maxAllowed = 0; //0 is unlimited.
+                        maxAllowed = maxAllowed * 1024 * 1024; //In Bytes.
+
+                        long totalRead = 0;
+                        var buffer = new byte[1024 * 500]; // In 80Kb chunks buffer, it takes 29 seconds for 275 MB file. Though it doesn't make much difference, let us keep it as 500KB chunk.
+                    bool skipFile = false;
+                        await using (var fs = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, bufferSize:1024*1024*2,useAsync:true)) { // 1 MB buffer is reasonable.
+                            int read;
+                            while ((read = await section.Body.ReadAsync(buffer, 0, buffer.Length)) > 0) {
+                                totalRead += read;
+
+                                // Check file size while streaming
+                                if (maxAllowed > 0 && totalRead > maxAllowed) {
+                                    fs.Dispose();
+                                    //Delete file here itself.
+                                    DeleteTemporaryFile(tempPath);
+                                    var msg = $"File '{fileName}' exceeds default limit {maxAllowed / 1024 / 1024} MB.";
+                                    if (_throwExceptions) throw new Exception(msg);
+
+                                    var failedResponse = new OSSResponse {
+                                        RawName = fileName,
+                                        Status = false,
+                                        Message = msg
+                                    };
+                                    result.Failed++;
+                                    result.FailedObjects.Add(failedResponse);
+                                    await section.Body.CopyToAsync(Stream.Null); // discard rest
+                                    skipFile = true;
+                                    break;
+                                }
+                                await fs.WriteAsync(buffer.AsMemory(0, read)); //Write the file to local
+                            }
+                        }
+
+                        if (skipFile) continue; //Continue to next section.
+
+                        fileSections.Add((fileName, tempPath, cdname, sectionContentType));
                     }
-
-                    if (skipFile) continue; //Continue to next section.
-
-                    fileSections.Add((fileName, tempPath,cdname, sectionContentType));
                 }
-            }
         }
 
         // Content-Type: multipart/form-data; boundary="----WebKitFormBoundarymx2fSWqWSd0OxQqq"

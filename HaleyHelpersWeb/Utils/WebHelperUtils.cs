@@ -36,7 +36,7 @@ namespace Haley.Utils {
             }
         }
 
-        public static async Task SendProxyRequest(this HttpResponse target, HttpRequest source, HttpClient client, string relativeURI, HttpMethod method) {
+        public static async Task SendProxyRequest(this HttpResponse target, HttpRequest source, HttpClient client, string relativeURI, HttpMethod method, Dictionary<string, string>? customHeaders = null) {
 
             #region 1. CREATE PROXY REQUEST 
             //Note that, if the relativeURI starts with a slash, then it will be treated as absolute path on the HOST.. and relative to already existing base url..
@@ -73,8 +73,20 @@ namespace Haley.Utils {
                 }
             }
 
-            //Console.WriteLine($"Proxy Content-Type: {proxyRequest.Content?.Headers.ContentType}");
-            //Console.WriteLine($"Original Content-Type: {source.ContentType}");
+            // CUSTOM HEADERS
+            if (customHeaders != null) {
+                foreach (var kvp in customHeaders) {
+                    // Avoid overwriting reserved headers accidentally
+                    if (string.Equals(kvp.Key, "Content-Length", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(kvp.Key, "Host", StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    // Try to add to request-level headers first
+                    if (!proxyRequest.Headers.TryAddWithoutValidation(kvp.Key, kvp.Value)) {
+                        proxyRequest.Content?.Headers.TryAddWithoutValidation(kvp.Key, kvp.Value);
+                    }
+                }
+            }
             #endregion
 
 

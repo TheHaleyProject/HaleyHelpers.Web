@@ -10,6 +10,8 @@ using Microsoft.Extensions.Options;
 using System;
 using System.Linq;
 using System.Net;
+using System.Net.Security;
+using System.Security.Authentication;
 using System.Text;
 using System.Web;
 
@@ -47,8 +49,8 @@ namespace Haley.Utils {
                 var proxyRequest = new HttpRequestMessage {
                     Method = method,
                     RequestUri = new Uri(relativeURI, UriKind.Relative),
-                    Version = HttpVersion.Version20,
-                    VersionPolicy = HttpVersionPolicy.RequestVersionOrHigher
+                    Version = client.DefaultRequestVersion ?? HttpVersion.Version20,
+                    VersionPolicy = HttpVersionPolicy.RequestVersionOrHigher,
                 };
 
                 // Stream request body if present
@@ -144,7 +146,7 @@ namespace Haley.Utils {
                 await response.Content.CopyToAsync(target.Body, linkedToken);
             } catch (Exception ex) {
                 await target.WriteAsync($"{ex.Message}");
-            }
+            } 
         }
 
         public static object ConvertDBAResult(this object input, ResultFilter filter = ResultFilter.FirstDictionaryValue) {

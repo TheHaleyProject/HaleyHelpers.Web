@@ -11,20 +11,17 @@ namespace Haley.Models {
 
         public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next) {
             var resultContext = await next();
-
             var result = resultContext.Result;
 
-            if (result is ObjectResult obj && obj.Value is IFeedback feedback) { //If the result of the 
-                if (!_env.IsDevelopment()) {
-                    feedback.HideDebugInfo(); // Or sanitize, wrap, etc.
+            do {
+                if (ThrowTrace) break; //If we want to throw trace, we do nothing here.
+                if (result is ObjectResult obj && obj.Value is IFeedbackBase feedback) { //If the result of the 
+                    feedback.Trace = null;
+                } else if (result is IFeedbackBase rawFeedback) {
+                    rawFeedback.Trace = null; 
+                    //resultContext.Result = new ObjectResult(rawFeedback); // Wrap it for serialization
                 }
-            } else if (result is IFeedback rawFeedback) {
-                if (!_env.IsDevelopment()) {
-                    rawFeedback.HideDebugInfo();
-                }
-
-                resultContext.Result = new ObjectResult(rawFeedback); // Wrap it for serialization
-            }
+            } while (false); //Run once
         }
     }
 }

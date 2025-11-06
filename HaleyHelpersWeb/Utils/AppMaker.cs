@@ -45,6 +45,13 @@ namespace Haley.Utils {
             return this;
         }
 
+        public AppMaker WithFeedbackFilter(bool throwExceptions, Func<IActionResult?, Task> customHandler = null) {
+            appInput.FeedbackFilterHandler = customHandler;
+            appInput.ThrowFeedbackFilterExceptions = throwExceptions;
+            appInput.AddFeedbackFilter = true;
+            return this;
+        }
+
         public AppMaker AddSwaggerRoute(string route) {
             if (string.IsNullOrWhiteSpace(route)) return this;
             appInput.SwaggerRoute = route;
@@ -214,12 +221,27 @@ namespace Haley.Utils {
                 }
 
                 builder.Services.AddSingleton<IAdapterGateway>(input.DBGateway);
+                if (input.AddFeedbackFilter) {
+                    var fbFilterArgs = new FeedbackActionArgs();
+                    fbFilterArgs.ThrowExceptions = input.ThrowFeedbackFilterExceptions;
+                    fbFilterArgs.Handler = input.FeedbackFilterHandler;
+                    builder.Services.AddSingleton(fbFilterArgs);
+                }
+
                 if (input.DBGateway is IModularGateway mg) {
                     builder.Services.AddSingleton<IModularGateway>(mg);
                 }
 
                 //ADD BASIC SERVICES
-                builder.Services.AddControllers().AddJsonOptions(o=> { o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()); });
+                builder.Services
+                    .AddControllers(o => {
+                        if (input.AddFeedbackFilter) {
+                            o.Filters.Add<FeedbackActionFilter>();
+                        }
+                    })
+                    .AddJsonOptions(o=> 
+                    { o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()); 
+                    });
                 builder.Services.AddEndpointsApiExplorer(); //Which registers all the endpoints
 
                 //ADD SWAGGER (only if it is not disabled by user)

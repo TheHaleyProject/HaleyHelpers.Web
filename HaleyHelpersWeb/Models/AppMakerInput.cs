@@ -1,6 +1,7 @@
 ﻿using Haley.Abstractions;
 using Haley.Enums;
 using Haley.Utils;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Server.HttpSys;
 using Microsoft.OpenApi.Models;
 using System.Reflection.Metadata.Ecma335;
@@ -30,6 +31,9 @@ namespace Haley.Models {
         internal bool IncludeCors { get; set; }
         internal bool UseAuthentication { get; set; } = false;
         internal bool UseAuthorization { get; set; } = false;
+        internal bool AddFeedbackFilter { get; set; }
+        internal bool ThrowFeedbackFilterExceptions { get; set; }
+        internal Func<IActionResult?, Task> FeedbackFilterHandler { get; set; }
         internal string SwaggerRoute { get; set; }
         internal List<SwaggerInput> SwaggerSchemes { get; set; } = new List<SwaggerInput> { new SwaggerInput(BaseSchemeNames.DefaultJWT, "Authorization", SecuritySchemeType.Http) };
         public AppMakerInput(string[] args, Func<string[]> configPathsProvider) { Args = args; JsonPathsProvider = configPathsProvider; }

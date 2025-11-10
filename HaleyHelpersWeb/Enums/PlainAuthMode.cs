@@ -3,6 +3,7 @@
         Basic = 0,
         JWT , //Json Web Token
         APIKey,
-        Cookie 
+        Cookie, 
+        SAML
     }
 }

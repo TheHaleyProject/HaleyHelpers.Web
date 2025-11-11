@@ -6,5 +6,6 @@
         public const string Any = "Policy-Any";
         public const string General = "Policy-General";
         public const string Admin = "Policy-Admin";
+        public const string AzureSaml = "Azure-SAML-Policy";
     }
 }

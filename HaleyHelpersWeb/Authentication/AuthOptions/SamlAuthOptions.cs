@@ -1,6 +1,6 @@
 ﻿using Haley.Enums;
-
 using System.Security.Cryptography.X509Certificates;
+
 namespace Haley.Models {
     public class SamlAuthOptions : PlainAuthOptions {
         // IdP (Entra) metadata URL or static cert 

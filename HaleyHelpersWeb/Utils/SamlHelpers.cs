@@ -4,9 +4,9 @@ using System.Xml;
 namespace Haley.Utils {
     internal class SamlHelpers {
         // Common SAML/Entra URIs
-        private const string NsSaml = "urn:oasis:names:tc:SAML:2.0:assertion";
-        private const string pathNameId = "//saml:Assertion/saml:Subject/saml:NameID";
-        private const string pathAttribute = "//saml:AttributeStatement/saml:Attribute";
+        internal const string NsSaml = "urn:oasis:names:tc:SAML:2.0:assertion";
+        internal const string pathNameId = "//saml:Assertion/saml:Subject/saml:NameID";
+        internal const string pathAttribute = "//saml:AttributeStatement/saml:Attribute";
 
         // Azure AD (Microsoft Entra) typical claim URIs
         private const string CLAIM_EMAIL = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress";

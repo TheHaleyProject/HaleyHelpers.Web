@@ -46,7 +46,9 @@ namespace Haley.Models {
                 doc.LoadXml(xml);
 
                 // 3) Get signing cert (from options or metadata loader you register via DI)
-                var cert = o.SigningCert ?? await SamlMetadataCache.GetSigningCertAsync(o.IdpMetadataUrl, ctx.RequestServices, log);
+                //Idea behind the samlmetadacache is to avoid fetching metadata on every request. Its like, we download the certificate from the metadata once and cache it for later use. Sometimes, the server will rotate the certificate, so we need to have a way to refresh it periodically.
+
+                var cert = o.SigningCert; //?? await SamlMetadataCache.GetSigningCertAsync(o.IdpMetadataUrl, ctx.RequestServices, log); 
 
                 // 4) Validate signature on Response or Assertion
                 if (!ValidateSignature(doc, cert))
@@ -83,7 +85,7 @@ namespace Haley.Models {
 
         static bool ValidateConditionsAndAudience(XmlDocument doc, string audience, TimeSpan skew) {
             var ns = new XmlNamespaceManager(doc.NameTable);
-            ns.AddNamespace("saml", "urn:oasis:names:tc:SAML:2.0:assertion");
+            ns.AddNamespace("saml", SamlHelpers.NsSaml);
 
             var conditions = doc.SelectSingleNode("//saml:Assertion/saml:Conditions", ns) as XmlElement;
             if (conditions != null) {

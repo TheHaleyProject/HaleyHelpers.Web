@@ -1,8 +1,13 @@
-﻿using System.IO.Compression;
+﻿using Azure.Core;
+using Haley.Models;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.Extensions.Options;
+using System.IO.Compression;
 using System.Security.Claims;
+using System.Security.Cryptography.X509Certificates;
+using System.Security.Cryptography.Xml;
 using System.Text;
 using System.Xml;
-using Haley.Models;
 
 namespace Haley.Utils {
     public class SamlHelpers {
@@ -89,16 +94,111 @@ namespace Haley.Utils {
             var query = $"SAMLRequest={Uri.EscapeDataString(samlRequest)}&RelayState={Uri.EscapeDataString(relayState)}";
             return $"{ssoUrl}?{query}";
         }
+        public static IResult UserLogin(string relay_url) {
+            var cfg = ResourceUtils.GenerateConfigurationRoot();
+            var samlSection = cfg.GetSection("Saml:Azure");
+            var opts = new SamlAuthOptions {
+                SpEntityId = samlSection["SpEntityId"]!,
+                AcsUrl = samlSection["AcsUrl"]!
+            };
+
+            // Microsoft Entra SSO URL for Redirect binding
+            var tenantId = samlSection["TenantId"]; // e.g. 245b2389c5
+            var ssoUrl = $"https://login.microsoftonline.com/{tenantId}/saml2";
+
+            // Build redirect
+            var redirectUrl = SamlHelpers.BuildAuthnRedirectUrl(ssoUrl, opts, relayState: relay_url);
+            return Results.Redirect(redirectUrl);
+        }
         private static string MapKnownType(string samlName) {
             return samlName switch {
-                CLAIM_EMAIL => ClaimTypes.Email,
-                CLAIM_NAME => ClaimTypes.Name,
+                CLAIM_EMAIL or "email" => ClaimTypes.Email,
+                CLAIM_NAME or "name" => ClaimTypes.Name,
                 CLAIM_UPN => "upn",
                 CLAIM_OID => "oid",
                 CLAIM_TID => "tid",
                 CLAIM_GRP => ClaimTypes.GroupSid, // or a custom "groups" type if you prefer
                 _ => samlName // keep original URI for unknowns
             };
+        }
+
+        public static AuthenticateResult ValidateAzurePayload(HttpRequest request, string base64Xml, ILogger log, string scheme_name, SamlAuthOptions options) { 
+            try {
+                if (string.IsNullOrWhiteSpace(base64Xml))
+                    return AuthenticateResult.NoResult();
+
+                var audience = string.IsNullOrWhiteSpace(options.Audience) ? options.SpEntityId : options.Audience;
+
+                // 1) Decode XML
+                var xmlBytes = Convert.FromBase64String(base64Xml);
+                var xml = Encoding.UTF8.GetString(xmlBytes);
+
+                // 2) Load XML
+                var doc = new XmlDocument { PreserveWhitespace = true };
+                doc.LoadXml(xml);
+
+                // 3) Get signing cert (from options or metadata loader you register via DI)
+                //Idea behind the samlmetadacache is to avoid fetching metadata on every request. Its like, we download the certificate from the metadata once and cache it for later use. Sometimes, the server will rotate the certificate, so we need to have a way to refresh it periodically.
+
+                var cert = options.SigningCert; //?? await SamlMetadataCache.GetSigningCertAsync(o.IdpMetadataUrl, ctx.RequestServices, log); 
+
+                //// 4) Validate signature on Response or Assertion
+                //if (!ValidateSignature(doc, cert))
+                //    return AuthenticateResult.Fail("Invalid SAML signature");
+
+                //// 5) Validate Conditions (NotBefore/NotOnOrAfter) and Audience
+                //if (!ValidateConditionsAndAudience(doc, audience, options.AllowedClockSkew))
+                //    return AuthenticateResult.Fail("SAML conditions/audience check failed");
+
+                // 6) Extract claims (NameID + attributes you care about)
+                var claims = ExtractClaims(doc, options.SpEntityId);
+                string relayState = "/";
+                if(request.HasFormContentType && request.Form.TryGetValue("RelayState", out var sr)) {
+                    relayState = sr.ToString();
+                } else if (request.Query.TryGetValue("RelayState", out var qr)) {
+                    relayState = qr.ToString();
+                }
+                claims.Add(new Claim("Relay", relayState));
+
+                // 7) Success -> ticket
+                var identity = new ClaimsIdentity(claims, scheme_name);
+                var principal = new ClaimsPrincipal(identity);
+                var ticket = new AuthenticationTicket(principal, scheme_name);
+                return AuthenticateResult.Success(ticket);
+            } catch (Exception ex) {
+                log?.LogError(ex, "SAML validation failed");
+                return AuthenticateResult.Fail("SAML validation failed");
+            }
+        }
+
+        static bool ValidateSignature(XmlDocument doc, X509Certificate2 cert) {
+            // Try Response-level signature first
+            var sigEl = (XmlElement?)doc.GetElementsByTagName("Signature", SignedXml.XmlDsigNamespaceUrl).Cast<XmlElement?>().FirstOrDefault();
+            if (sigEl == null) return false;
+
+            var parent = sigEl.ParentNode as XmlElement;   // Response or Assertion
+            var sx = new SignedXml(parent);
+            sx.LoadXml(sigEl);
+            return sx.CheckSignature(cert, true);
+        }
+
+        static bool ValidateConditionsAndAudience(XmlDocument doc, string audience, TimeSpan skew) {
+            var ns = new XmlNamespaceManager(doc.NameTable);
+            ns.AddNamespace("saml", SamlHelpers.NsSaml);
+
+            var conditions = doc.SelectSingleNode("//saml:Assertion/saml:Conditions", ns) as XmlElement;
+            if (conditions != null) {
+                DateTime? nb = TryParse(conditions.GetAttribute("NotBefore"));
+                DateTime? na = TryParse(conditions.GetAttribute("NotOnOrAfter"));
+                var now = DateTime.UtcNow;
+                if (nb.HasValue && now + skew < nb.Value) return false;
+                if (na.HasValue && now - skew >= na.Value) return false;
+            }
+
+            var aud = doc.SelectSingleNode("//saml:Audience", ns)?.InnerText?.Trim();
+            return string.IsNullOrWhiteSpace(aud) || string.Equals(aud, audience, StringComparison.OrdinalIgnoreCase);
+
+            static DateTime? TryParse(string v) => string.IsNullOrWhiteSpace(v) ? null : DateTime.Parse(v, null, System.Globalization.DateTimeStyles.AdjustToUniversal);
         }
     }
 }

@@ -31,41 +31,8 @@ namespace Haley.Models {
         // Use handler-level validator (so Options.Validator can stay null)
         protected override Func<HttpContext, string, ILogger, Task<AuthenticateResult>>? Validator => async (ctx, base64Xml, log) => {
             try {
-                if (string.IsNullOrWhiteSpace(base64Xml))
-                    return AuthenticateResult.NoResult();
-
-                var o = OptionsMonitor.Get(Scheme.Name);
-                var audience = string.IsNullOrWhiteSpace(o.Audience) ? o.SpEntityId : o.Audience;
-
-                // 1) Decode XML
-                var xmlBytes = Convert.FromBase64String(base64Xml);
-                var xml = System.Text.Encoding.UTF8.GetString(xmlBytes);
-
-                // 2) Load XML
-                var doc = new XmlDocument { PreserveWhitespace = true };
-                doc.LoadXml(xml);
-
-                // 3) Get signing cert (from options or metadata loader you register via DI)
-                //Idea behind the samlmetadacache is to avoid fetching metadata on every request. Its like, we download the certificate from the metadata once and cache it for later use. Sometimes, the server will rotate the certificate, so we need to have a way to refresh it periodically.
-
-                var cert = o.SigningCert; //?? await SamlMetadataCache.GetSigningCertAsync(o.IdpMetadataUrl, ctx.RequestServices, log); 
-
-                // 4) Validate signature on Response or Assertion
-                if (!ValidateSignature(doc, cert))
-                    return AuthenticateResult.Fail("Invalid SAML signature");
-
-                // 5) Validate Conditions (NotBefore/NotOnOrAfter) and Audience
-                if (!ValidateConditionsAndAudience(doc, audience, o.AllowedClockSkew))
-                    return AuthenticateResult.Fail("SAML conditions/audience check failed");
-
-                // 6) Extract claims (NameID + attributes you care about)
-                var claims = SamlHelpers.ExtractClaims(doc, o.SpEntityId);
-
-                // 7) Success -> ticket
-                var identity = new System.Security.Claims.ClaimsIdentity(claims, Scheme.Name);
-                var principal = new System.Security.Claims.ClaimsPrincipal(identity);
-                var ticket = new AuthenticationTicket(principal, Scheme.Name);
-                return AuthenticateResult.Success(ticket);
+                if (string.IsNullOrWhiteSpace(base64Xml)) return AuthenticateResult.NoResult();
+                return SamlHelpers.ValidateAzurePayload(Request, base64Xml, log, Scheme.Name, OptionsMonitor.Get(Scheme.Name));
             } catch (Exception ex) {
                 log?.LogError(ex, "SAML validation failed");
                 return AuthenticateResult.Fail("SAML validation failed");

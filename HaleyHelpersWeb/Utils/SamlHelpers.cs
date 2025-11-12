@@ -142,13 +142,13 @@ namespace Haley.Utils {
 
                 var cert = options.SigningCert; //?? await SamlMetadataCache.GetSigningCertAsync(o.IdpMetadataUrl, ctx.RequestServices, log); 
 
-                //// 4) Validate signature on Response or Assertion
-                //if (!ValidateSignature(doc, cert))
-                //    return AuthenticateResult.Fail("Invalid SAML signature");
+                // 4) Validate signature on Response or Assertion
+                if (!ValidateSignature(doc, cert))
+                    return AuthenticateResult.Fail("Invalid SAML signature");
 
-                //// 5) Validate Conditions (NotBefore/NotOnOrAfter) and Audience
-                //if (!ValidateConditionsAndAudience(doc, audience, options.AllowedClockSkew))
-                //    return AuthenticateResult.Fail("SAML conditions/audience check failed");
+                // 5) Validate Conditions (NotBefore/NotOnOrAfter) and Audience
+                if (!ValidateConditionsAndAudience(doc, audience, options.AllowedClockSkew))
+                    return AuthenticateResult.Fail("SAML conditions/audience check failed");
 
                 // 6) Extract claims (NameID + attributes you care about)
                 var claims = ExtractClaims(doc, options.SpEntityId);

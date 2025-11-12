@@ -38,35 +38,5 @@ namespace Haley.Models {
                 return AuthenticateResult.Fail("SAML validation failed");
             }
         };
-
-        static bool ValidateSignature(XmlDocument doc, X509Certificate2 cert) {
-            // Try Response-level signature first
-            var sigEl = (XmlElement?)doc.GetElementsByTagName("Signature", SignedXml.XmlDsigNamespaceUrl).Cast<XmlElement?>().FirstOrDefault();
-            if (sigEl == null) return false;
-
-            var parent = sigEl.ParentNode as XmlElement;   // Response or Assertion
-            var sx = new SignedXml(parent);
-            sx.LoadXml(sigEl);
-            return sx.CheckSignature(cert, true);
-        }
-
-        static bool ValidateConditionsAndAudience(XmlDocument doc, string audience, TimeSpan skew) {
-            var ns = new XmlNamespaceManager(doc.NameTable);
-            ns.AddNamespace("saml", SamlHelpers.NsSaml);
-
-            var conditions = doc.SelectSingleNode("//saml:Assertion/saml:Conditions", ns) as XmlElement;
-            if (conditions != null) {
-                DateTime? nb = TryParse(conditions.GetAttribute("NotBefore"));
-                DateTime? na = TryParse(conditions.GetAttribute("NotOnOrAfter"));
-                var now = DateTime.UtcNow;
-                if (nb.HasValue && now + skew < nb.Value) return false;
-                if (na.HasValue && now - skew >= na.Value) return false;
-            }
-
-            var aud = doc.SelectSingleNode("//saml:Audience", ns)?.InnerText?.Trim();
-            return string.IsNullOrWhiteSpace(aud) || string.Equals(aud, audience, StringComparison.OrdinalIgnoreCase);
-
-            static DateTime? TryParse(string v) => string.IsNullOrWhiteSpace(v) ? null : DateTime.Parse(v, null, System.Globalization.DateTimeStyles.AdjustToUniversal);
-        }
     }
 }

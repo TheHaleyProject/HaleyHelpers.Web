@@ -1,4 +1,5 @@
-﻿using Haley.Enums;
+﻿using Haley.Abstractions;
+using Haley.Enums;
 using Haley.Utils;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
@@ -12,7 +13,7 @@ namespace Haley.Models {
         public PlainAuthHandlerBase(IOptionsMonitor<T> options, ILoggerFactory logger, UrlEncoder encoder, ISystemClock clock) : base(options, logger, encoder,clock) {
             
         }
-        protected abstract bool GetToken(out string token);
+        protected abstract Task<IFeedback<string>> GetToken();
         protected abstract PlainAuthMode AuthMode { get; set; }
         protected virtual Func<HttpContext, string, ILogger, Task<AuthenticateResult>>? Validator { get; set; }
         protected override async Task<AuthenticateResult> HandleAuthenticateAsync() {
@@ -50,20 +51,21 @@ namespace Haley.Models {
                     return AuthenticateResult.Fail(message);
                 }
 
-                if (!GetToken(out var token)) {
+                var tokenObj = await GetToken();
+                if (!tokenObj.Status) {
                     message += $@"Unable to find a {AuthMode.ToString()} with name {Options.Key}";
                     Logger?.LogError(message);
                     return AuthenticateResult.Fail(message);
                 }
 
-                if (string.IsNullOrWhiteSpace(token)) {
+                if (string.IsNullOrWhiteSpace(tokenObj.Result)) {
                     message += $@"{AuthMode.ToString()} token value cannot be null or empty for {Options.Key}";
                     Logger?.LogError(message);
                     return AuthenticateResult.Fail(message);
                 }
 
                 if (Options.Validator != null) {
-                    var validation = await Options.Validator.Invoke(Context, token, Logger);
+                    var validation = await Options.Validator.Invoke(Context, tokenObj.Result, Logger);
                     if (!validation.Status) {
                         message += $@"Auth Failed. Error: {validation.Message}";
                         Logger?.LogError(message);
@@ -75,7 +77,7 @@ namespace Haley.Models {
                     var ticket = new AuthenticationTicket(principal, this.Scheme.Name);
                     return AuthenticateResult.Success(ticket);
                 } else if (Validator != null) {
-                    return await Validator.Invoke(Context, token, Logger);
+                    return await Validator.Invoke(Context, tokenObj.Result, Logger);
                 } else {
                     message += $@"Auth Failed. Error: No validator was found";
                     Logger?.LogError(message);

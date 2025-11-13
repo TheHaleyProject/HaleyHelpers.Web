@@ -1,8 +1,9 @@
-﻿using Microsoft.AspNetCore.Authentication;
+﻿using Haley.Abstractions;
+using Haley.Enums;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Options;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
-using Haley.Enums;
 
 namespace Haley.Models {
     public class PlainCookieAuthHandler : PlainAuthHandlerBase<PlainAuthOptions> {
@@ -11,11 +12,10 @@ namespace Haley.Models {
 
         protected override PlainAuthMode AuthMode { get; set; } = PlainAuthMode.Cookie;
 
-        protected override bool GetToken(out string token) {
-            token = string.Empty;
-            if (!this.Request.Cookies.TryGetValue(Options.Key, out var plainCookie)) return false;
-            token = plainCookie ?? string.Empty;
-            return true;
+        protected override async Task<IFeedback<string>> GetToken() {
+            var fb = new Feedback<string>().SetStatus(false);
+            if (!Request.Cookies.TryGetValue(Options.Key, out var plainCookie) || string.IsNullOrWhiteSpace(plainCookie)) return fb;
+            return fb.SetStatus(true).SetResult(plainCookie);
         }
     }
 }

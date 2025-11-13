@@ -129,10 +129,9 @@ namespace Haley.Utils {
                     return AuthenticateResult.NoResult();
 
                 var audience = string.IsNullOrWhiteSpace(options.Audience) ? options.SpEntityId : options.Audience;
-                
+
                 // 1) Decode XML
-                var xmlBytes = SafeBase64Decode(base64Xml);
-                var xml = Encoding.UTF8.GetString(xmlBytes);
+                var xml = base64Xml.SafeBase64DecodeAsString();
 
                 // 2) Load XML
                 var doc = new XmlDocument { PreserveWhitespace = true };

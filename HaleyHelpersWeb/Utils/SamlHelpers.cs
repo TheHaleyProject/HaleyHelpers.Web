@@ -94,7 +94,7 @@ namespace Haley.Utils {
             var query = $"SAMLRequest={Uri.EscapeDataString(samlRequest)}&RelayState={Uri.EscapeDataString(relayState)}";
             return $"{ssoUrl}?{query}";
         }
-        public static IResult UserLogin(string relay_url) {
+        public static IResult UserLogin(string relay_state) {
             var cfg = ResourceUtils.GenerateConfigurationRoot();
             var samlSection = cfg.GetSection("Saml:Azure");
             var opts = new SamlAuthOptions {
@@ -107,7 +107,7 @@ namespace Haley.Utils {
             var ssoUrl = $"https://login.microsoftonline.com/{tenantId}/saml2";
 
             // Build redirect
-            var redirectUrl = SamlHelpers.BuildAuthnRedirectUrl(ssoUrl, opts, relayState: relay_url);
+            var redirectUrl = SamlHelpers.BuildAuthnRedirectUrl(ssoUrl, opts, relayState: relay_state);
             return Results.Redirect(redirectUrl);
         }
         private static string MapKnownType(string samlName) {

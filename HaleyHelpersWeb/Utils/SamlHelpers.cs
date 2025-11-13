@@ -121,6 +121,7 @@ namespace Haley.Utils {
                 _ => samlName // keep original URI for unknowns
             };
         }
+       
 
         public static AuthenticateResult ValidateAzurePayload(HttpRequest request, string base64Xml, ILogger log, string scheme_name, SamlAuthOptions options) { 
             try {
@@ -128,9 +129,9 @@ namespace Haley.Utils {
                     return AuthenticateResult.NoResult();
 
                 var audience = string.IsNullOrWhiteSpace(options.Audience) ? options.SpEntityId : options.Audience;
-
+                
                 // 1) Decode XML
-                var xmlBytes = Convert.FromBase64String(base64Xml);
+                var xmlBytes = SafeBase64Decode(base64Xml);
                 var xml = Encoding.UTF8.GetString(xmlBytes);
 
                 // 2) Load XML

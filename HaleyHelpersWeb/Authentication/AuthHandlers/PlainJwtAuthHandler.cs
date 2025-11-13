@@ -1,4 +1,5 @@
 ﻿using Azure.Core;
+using Haley.Abstractions;
 using Haley.Enums;
 using Haley.Models;
 using Haley.Utils;
@@ -21,15 +22,14 @@ namespace Haley.Models {
 
         protected override PlainAuthMode AuthMode { get; set; } = PlainAuthMode.JWT;
 
-        protected override bool GetToken(out string token) {
-            //Options.TokenKey = Bearer
-            token = string.Empty;
+        protected override async Task<IFeedback<string>> GetToken() {
+            var fb = new Feedback<string>().SetStatus(false);
             if (Request.Headers.TryGetValue("Authorization", out var authHeader) &&
                authHeader.ToString().StartsWith($@"{Options.Key}", StringComparison.OrdinalIgnoreCase)) {
-                token = authHeader.ToString().Substring(($@"{Options.Key}".Length)).Trim();
-                return true;
+                var token = authHeader.ToString().Substring(($@"{Options.Key}".Length)).Trim();
+                return fb.SetStatus(true).SetResult(token);
             }
-            return false;
+            return fb;
         }
 
         protected override Func<HttpContext, string, ILogger, Task<AuthenticateResult>>? Validator => async (c, t, l) => {

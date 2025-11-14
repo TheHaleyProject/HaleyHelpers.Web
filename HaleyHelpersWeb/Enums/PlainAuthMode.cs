@@ -4,6 +4,7 @@
         JWT , //Json Web Token
         APIKey,
         Cookie, 
-        SAML
+        SAML,
+        QueryToken
     }
 }

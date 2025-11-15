@@ -39,7 +39,7 @@ namespace Haley.Utils {
             }
 
             // Register the scheme with default options
-            builder.AddScheme<SamlAuthOptions, PlainSamlAuthHandler>(schemeName, options => {
+            builder.AddScheme<SamlAuthOptions, PlainAzureSamlAuthHandler>(schemeName, options => {
                 options.SpEntityId = spEntityId;
                 options.AcsUrl = acsUrl;
                 options.IdpMetadataUrl = idpMetadataUrl;

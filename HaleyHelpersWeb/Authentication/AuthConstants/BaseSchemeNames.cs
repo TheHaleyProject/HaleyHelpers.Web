@@ -1,10 +1,12 @@
 ﻿namespace Haley {
     public class BaseSchemeNames {
-        public const string RazorDocToken = "Razor-Doc-Storage"; //Razor document storage
-        public const string RazorViewerCookie = "Razor-Viewer"; //Document Viewer
-        public const string AppToken = "App-Token-Main"; //For general Preq Token
-        public const string DefaultJWT = "Jwt-Bearer-Default"; //For general Preq Token
-        public const string AzureSAML = "Azure-Saml-Scheme"; //For general Preq Token
-        public const string QueryToken = "Query-Token-Main"; //For general Preq Token
+        public const string RazorDocToken = "Scheme-Token-RazorDoc";
+        public const string HeaderToken = "Scheme-Token-Header";
+        public const string HeaderAuth = "Scheme-Token-HeaderAuth";
+        public const string DefaultJWT = "Scheme-Token-JWTDefault";
+        public const string Cookie = "Scheme-Token-Cookie"; 
+        public const string AzureSAML = "Scheme-Token-AzureSaml"; 
+        public const string QueryToken = "Scheme-Token-Query"; 
+        public const string FormToken = "Scheme-Token-Form";
     }
 }

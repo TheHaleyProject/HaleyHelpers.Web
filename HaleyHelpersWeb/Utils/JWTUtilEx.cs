@@ -36,11 +36,11 @@ namespace Haley.Utils {
 
 
         public static async Task<string> GetDBA(this HttpContext context) {
-            return await context.GetJwtClaim(JWTClaimType.DBA_KEY);
+            return await context.GetJwtClaim(BaseClaimTypes.DBA_KEY);
         }
 
         public static AuthenticationBuilder AddJwtBearerScheme(this AuthenticationBuilder builder, string scheme, Action<JwtAuthOptions> configureOptions) {
-            builder.AddScheme<JwtAuthOptions, PlainJwtAuthHandler>(scheme, options => { }); //Dont set the options, here, otherwise, it will override, the options monitor
+            builder.AddScheme<JwtAuthOptions, PlainHeaderAuthTokenHandler>(scheme, options => { }); //Dont set the options, here, otherwise, it will override, the options monitor
             // Register named options for this scheme
             builder.Services.Configure<JwtAuthOptions>(scheme, configureOptions);
             return builder;

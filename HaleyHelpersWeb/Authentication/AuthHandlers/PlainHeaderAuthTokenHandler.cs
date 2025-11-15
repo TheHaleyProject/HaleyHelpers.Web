@@ -15,23 +15,12 @@ using System.Text.Encodings.Web;
 
 namespace Haley.Models {
 
-    public class PlainJwtAuthHandler : PlainAuthHandlerBase<JwtAuthOptions> {
+    public class PlainHeaderAuthTokenHandler : PlainAuthHandlerBase<JwtAuthOptions> {
 
-        public PlainJwtAuthHandler(IOptionsMonitor<JwtAuthOptions> options, ILoggerFactory logger, UrlEncoder encoder, ISystemClock clock) : base(options, logger, encoder, clock) {
+        public PlainHeaderAuthTokenHandler(IOptionsMonitor<JwtAuthOptions> options, ILoggerFactory logger, UrlEncoder encoder, ISystemClock clock) : base(options, logger, encoder, clock) {
         }
 
-        protected override PlainAuthMode AuthMode { get; set; } = PlainAuthMode.JWT;
-
-        protected override async Task<IFeedback<string>> GetToken() {
-            var fb = new Feedback<string>().SetStatus(false);
-            if (Request.Headers.TryGetValue("Authorization", out var authHeader) &&
-               authHeader.ToString().StartsWith($@"{Options.Key}", StringComparison.OrdinalIgnoreCase)) {
-                var token = authHeader.ToString().Substring(($@"{Options.Key}".Length)).Trim();
-                return fb.SetStatus(true).SetResult(token);
-            }
-            return fb;
-        }
-
+        protected override PlainAuthMode AuthMode { get; set; } = PlainAuthMode.HeaderAuthToken;
         protected override Func<HttpContext, string, ILogger, Task<AuthenticateResult>>? Validator => async (c, t, l) => {
             if (string.IsNullOrEmpty(t)) {
                 return AuthenticateResult.NoResult();

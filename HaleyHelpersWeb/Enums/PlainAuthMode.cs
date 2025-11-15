@@ -1,10 +1,11 @@
 ﻿namespace Haley.Enums {
     public enum PlainAuthMode {
         Basic = 0,
-        JWT , //Json Web Token
-        APIKey,
+        HeaderAuthToken , //Json Web Token
+        HeaderApiKey,
         Cookie, 
-        SAML,
-        QueryToken
+        AzureSAML,
+        QueryToken,
+        FormToken
     }
 }

@@ -17,6 +17,11 @@ namespace Haley.Models {
         protected abstract PlainAuthMode AuthMode { get; set; }
         protected virtual Func<HttpContext, string, ILogger, Task<AuthenticateResult>>? Validator { get; set; }
         protected override async Task<AuthenticateResult> HandleAuthenticateAsync() {
+            //Authentication.NoResult() → skips this handler and moves to the next one (if any). Applicable when there are multiple authentication schemes.
+            //Authentication.Fail() → fails the authentication immediately. Even if multiple authentication schemes are configured, the process stops here.
+            //Authentication.Success() → authentication is successful.
+            //Authentication.Challenge() → issues a challenge to the client. Typically used when authentication is required but not provided.
+            //Authentication.Forbid() → forbids access to the resource. Typically used when authentication is provided but insufficient permissions.
             try {
                 var endpoint = Context?.GetEndpoint();
 
@@ -39,10 +44,11 @@ namespace Haley.Models {
 
                 string message = $@"Call Id : {callID} | IP : {reqIP} | ";
                 if (endpoint is RouteEndpoint re) {
-                    message += $@"Endpoint : {re.RoutePattern?.RawText ?? endpoint.ToString()}";
+                    message += $@"Endpoint : {re.RoutePattern?.RawText ?? endpoint.ToString()} | ";
                 } else {
-                    message += $@"Endpoint : {endpoint}";
+                    message += $@"Endpoint : {endpoint} | ";
                 }
+                message += $@"Auth Mode : {AuthMode.ToString()}";
                 message += Environment.NewLine;
 
                 if (Options.Validator == null && Validator == null) {

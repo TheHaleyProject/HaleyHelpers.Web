@@ -2,13 +2,14 @@
 using Haley.Models;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
+using System.Net.Mail;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 
 namespace Haley.Utils {
     public static class WebAuthUtils {
-        public static AuthenticationBuilder AddAzureSamlScheme(this AuthenticationBuilder builder, string schemeName = BaseSchemeNames.AzureSAML, Action<SamlAuthOptions>? configure = null) {
+        public static AuthenticationBuilder AddAzureSamlScheme(this AuthenticationBuilder builder, string schemeName = BaseSchemeNames.FORM_TOKEN_AZURE_SAML, Action<SamlAuthOptions>? configure = null) {
             var configuration = ResourceUtils.GenerateConfigurationRoot();
             if (configuration == null) throw new InvalidOperationException("Failed to load configuration.");
             // Pull section: Saml:Azure
@@ -58,7 +59,6 @@ namespace Haley.Utils {
                 return string.Empty;
             }
         }
-
         public static string GetEncryptedIPCookie(this HttpContext context, string encryptKey, string encryptSalt = null, Dictionary<string, string> payload = null) {
             var ip = context.GetClientIP();
             if (string.IsNullOrWhiteSpace(ip)) throw new ArgumentException("Unable to verify the ip address of the request.");
@@ -78,7 +78,6 @@ namespace Haley.Utils {
 
             return EncryptionUtils.Encrypt(cookieDic.ToJson(), encryptKey, encryptSalt).value;
         }
-
         public static void AppendEncryptIPCookie(this HttpContext context, string cookieName, CookieOptions options, string encryptKey, string encryptSalt = null, Dictionary<string, string> payload = null) {
             try {
                 if (context == null) throw new ArgumentNullException("HttpContext");
@@ -97,17 +96,6 @@ namespace Haley.Utils {
             return decrypted.FromJson<Dictionary<string, string>>();
         }
 
-        public static void CreateAuthPolicy(this AuthorizationOptions options, string scheme_name, string policy_name, Action<AuthorizationPolicyBuilder> processor = null) {
-            var policyBuilder = new AuthorizationPolicyBuilder(scheme_name) //Api Key
-                            .RequireAuthenticatedUser();
-
-            processor?.Invoke(policyBuilder);
-            options.AddPolicy(policy_name, policyBuilder.Build());
-        }
-        public static void AddAzureSamlPolicy(this AuthorizationOptions options) {
-            var policyBuilder = new AuthorizationPolicyBuilder(BaseSchemeNames.AzureSAML) //Api Key
-                            .RequireAuthenticatedUser();
-            options.AddPolicy(BasePolicyNames.AzureSaml, policyBuilder.Build());
-        }
+        public static void AddAzureSamlPolicy(this AuthorizationOptions options, string policyName, string schemeName = BaseSchemeNames.FORM_TOKEN_AZURE_SAML) => options.WithSchemes(schemeName).ForPolicy(policyName).CreateAuthPolicy();
     }
 }

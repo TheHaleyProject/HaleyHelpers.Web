@@ -158,7 +158,7 @@ namespace Haley.Utils {
                 } else if (request.Query.TryGetValue("RelayState", out var qr)) {
                     relayState = qr.ToString();
                 }
-                claims.Add(new Claim("Relay", relayState));
+                claims.Add(new Claim(BaseClaimTypes.RELAY_STATE, relayState));
 
                 // 7) Success -> ticket
                 var identity = new ClaimsIdentity(claims, scheme_name);

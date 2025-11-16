@@ -13,7 +13,6 @@
         public const string Developer = "Plain-Policy-Developer";
 
         public const string DocumentAccess = "Plain-Doc-Access";
-        public const string AuthActivity = "Plain-User-Create-Credential";
-        
+        public const string AuthExchange = "Plain-User-Auth-Exchange";
     }
 }

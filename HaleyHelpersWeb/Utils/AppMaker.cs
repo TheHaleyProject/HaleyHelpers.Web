@@ -15,7 +15,7 @@ namespace Haley.Utils {
     //https://stackoverflow.com/questions/49694383/use-multiple-jwt-bearer-authentication
     public class AppMaker {
         static AppMaker inst = new AppMaker(); //Singleton
-        const string LOCALCORS = "localCors";
+        const string LOCALCORS = "haley_internal_cors";
         const string SWAGGERROUTE = "swaggerroute";
         public static JWTParameters JWTParams = ResourceUtils.GenerateConfigurationRoot()?.GetSection("Authentication:JWT")?.Get<JWTParameters>();
         AppMakerInput appInput;
@@ -80,8 +80,10 @@ namespace Haley.Utils {
             appInput.HttpsRedirection = https_redir;
             return this;
         }
-        public AppMaker WithCors(bool add_cors = true, Func<string, bool> originFilter = null) {
+
+        public AppMaker WithCors(bool add_cors = true, Func<string, bool>? originFilter = null, string[]? allowedOrigins = null) {
             appInput.CorsOriginFilter = originFilter; //if origin filter is null
+            appInput.AllowedOrigins = allowedOrigins; //if origin filter is null
             appInput.IncludeCors = add_cors;
             return this;
         }
@@ -252,19 +254,30 @@ namespace Haley.Utils {
                 //ADD AUTHENTICATION AND AUTHORIZATION
                 if (input.IncludeDefaultJWTAuth && JWTParams != null) {
                     builder.Services.AddAuthentication(p => {
-                        p.DefaultAuthenticateScheme = BaseSchemeNames.DefaultJWT;
-                        p.DefaultChallengeScheme = BaseSchemeNames.DefaultJWT;
-                    }).AddJwtBearerScheme(BaseSchemeNames.DefaultJWT, JWTUtilEx.ConfigureDefaultJWTAuth);
+                        p.DefaultAuthenticateScheme = BaseSchemeNames.HEADER_BEARER_JWT;
+                        p.DefaultChallengeScheme = BaseSchemeNames.HEADER_BEARER_JWT;
+                    }).AddJwtBearerScheme(BaseSchemeNames.HEADER_BEARER_JWT, JWTUtilEx.ConfigureDefaultJWTAuth);
                     builder.Services.AddAuthorization();
                 }
 
-                //CORS
+                //CORS (REMEMBER: CORS IS ENFORCED ONLY BY THE BROWSERS and NOT BY THE SERVERS).. So, it is useless to add CORS if your clients are not browsers. 
+                //CORS doesn't stop postman, CURL, .net client, bots, or other non-browser clients.
                 if (input.IncludeCors) {
                     builder.Services.AddCors(o => o.AddPolicy(LOCALCORS, b => {
                         b.AllowAnyMethod()
                             .AllowAnyHeader()
                             //.AllowAnyOrigin() //Not working with latest .NET 8+
-                            .SetIsOriginAllowed(origin => input.CorsOriginFilter == null ? true : input.CorsOriginFilter.Invoke(origin))
+                            .SetIsOriginAllowed(origin => {
+                                if (input.AllowedOrigins == null && input.CorsOriginFilter == null) return true; //No restrictions.
+                                //Level 1 : Check if the origin is in the allowed origins list.
+                                if (input.AllowedOrigins != null && input.AllowedOrigins.Length > 0 && input.AllowedOrigins.Contains(origin)) return true; // no need to check further.
+
+                                //Level 2 : Check with the user defined filter.
+                                if (input.CorsOriginFilter != null) return input.CorsOriginFilter.Invoke(origin);
+
+                                //Default: reject
+                                return false;
+                                })
                             //.SetIsOriginAllowed(origin => new Uri(origin).Host == "localhost") //Allow local host.
                             .AllowCredentials();
 

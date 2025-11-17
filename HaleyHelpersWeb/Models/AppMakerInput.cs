@@ -30,10 +30,11 @@ namespace Haley.Models {
         internal bool HttpsRedirection { get; set; } = true;
         internal bool AddForwardedHeaders { get; set; } = true;
         internal bool IncludeCors { get; set; }
+        internal bool? RejectInvalidCorsRequests { get; set; }
         internal bool UseAuthentication { get; set; } = false;
         internal bool UseAuthorization { get; set; } = false;
         internal bool AddFeedbackFilter { get; set; }
-        internal bool ThrowFeedbackFilterExceptions { get; set; }
+        internal bool DisplayTraceMessage { get; set; }
         internal Func<IActionResult?, Task> FeedbackFilterHandler { get; set; }
         internal string SwaggerRoute { get; set; }
         internal List<SwaggerInput> SwaggerSchemes { get; set; } = new List<SwaggerInput> { new SwaggerInput(BaseSchemeNames.HEADER_BEARER_JWT, "Authorization", SecuritySchemeType.Http) };

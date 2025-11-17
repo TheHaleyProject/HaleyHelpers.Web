@@ -24,7 +24,7 @@ namespace Haley.Models {
 
         async Task HandleResults(IActionResult? result) {
             if (result == null) return;
-            if (_args.ThrowExceptions) return; //If we want to throw trace, we do nothing here.
+            if (_args.DisplayTraceMessage) return; //If we want to display trace, we do nothing here.
             if (result is ObjectResult obj && obj.Value is IFeedbackBase feedback) { //If the result of the 
                 feedback.Trace = null;
             } else if (result is IFeedbackBase rawFeedback) {

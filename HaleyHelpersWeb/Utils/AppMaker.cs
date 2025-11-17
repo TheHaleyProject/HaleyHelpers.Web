@@ -17,13 +17,15 @@ namespace Haley.Utils {
         static AppMaker inst = new AppMaker(); //Singleton
         const string LOCALCORS = "haley_internal_cors";
         const string SWAGGERROUTE = "swaggerroute";
+        static AppFlags? _mode;
         public static JWTParameters JWTParams = ResourceUtils.GenerateConfigurationRoot()?.GetSection("Authentication:JWT")?.Get<JWTParameters>();
         AppMakerInput appInput;
 
-        public static AppMaker Get(string[] args, Func<string[]> configPathsProvider = null) {
+        public static AppMaker Get(string[] args, Func<string[]> configPathsProvider = null, AppFlags? mode = null) {
             if (inst.appInput == null) {
                 inst.appInput = new AppMakerInput(args, configPathsProvider);
             }
+            _mode = mode;
             return inst;
         }
 
@@ -45,9 +47,9 @@ namespace Haley.Utils {
             return this;
         }
 
-        public AppMaker WithFeedbackFilter(bool throwExceptions, Func<IActionResult?, Task> customHandler = null) {
+        public AppMaker WithFeedbackFilter(bool displayTrace, Func<IActionResult?, Task> customHandler = null) {
             appInput.FeedbackFilterHandler = customHandler;
-            appInput.ThrowFeedbackFilterExceptions = throwExceptions;
+            appInput.DisplayTraceMessage = displayTrace;
             appInput.AddFeedbackFilter = true;
             return this;
         }
@@ -81,10 +83,11 @@ namespace Haley.Utils {
             return this;
         }
 
-        public AppMaker WithCors(bool add_cors = true, Func<string, bool>? originFilter = null, string[]? allowedOrigins = null) {
+        public AppMaker WithCors(bool add_cors = true, Func<string, bool>? originFilter = null, string[]? allowedOrigins = null, bool? reject_invalid_requests = null) {
             appInput.CorsOriginFilter = originFilter; //if origin filter is null
             appInput.AllowedOrigins = allowedOrigins; //if origin filter is null
             appInput.IncludeCors = add_cors;
+            appInput.RejectInvalidCorsRequests = reject_invalid_requests;
             return this;
         }
 
@@ -216,16 +219,18 @@ namespace Haley.Utils {
                     allpaths = allpaths.Distinct().ToList(); //Remove duplicates
                 }
 
+                var cfgRoot = ResourceUtils.GenerateConfigurationRoot();
+
 
                 if (input.DBGateway is AdapterGateway dbs) {
                     dbs.SetConfigurationRoot(allpaths?.ToArray()).Configure().SetServiceUtil(new DBAServiceUtil());
-                    dbs.Updated += ()=> { JWTParams = ResourceUtils.GenerateConfigurationRoot()?.GetSection("Authentication:JWT")?.Get<JWTParameters>(); };
+                    dbs.Updated += ()=> { JWTParams = cfgRoot?.GetSection("Authentication:JWT")?.Get<JWTParameters>(); };
                 }
 
                 builder.Services.AddSingleton<IAdapterGateway>(input.DBGateway);
                 if (input.AddFeedbackFilter) {
                     var fbFilterArgs = new FeedbackActionArgs();
-                    fbFilterArgs.ThrowExceptions = input.ThrowFeedbackFilterExceptions;
+                    fbFilterArgs.DisplayTraceMessage = input.DisplayTraceMessage;
                     fbFilterArgs.Handler = input.FeedbackFilterHandler;
                     builder.Services.AddSingleton(fbFilterArgs);
                 }
@@ -237,9 +242,7 @@ namespace Haley.Utils {
                 //ADD BASIC SERVICES
                 builder.Services
                     .AddControllers(o => {
-                        if (input.AddFeedbackFilter) {
-                            o.Filters.Add<FeedbackActionFilter>();
-                        }
+                        if (input.AddFeedbackFilter) o.Filters.Add<FeedbackActionFilter>();
                     })
                     .AddJsonOptions(o=> 
                     { o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()); 
@@ -263,19 +266,48 @@ namespace Haley.Utils {
                 //CORS (REMEMBER: CORS IS ENFORCED ONLY BY THE BROWSERS and NOT BY THE SERVERS).. So, it is useless to add CORS if your clients are not browsers. 
                 //CORS doesn't stop postman, CURL, .net client, bots, or other non-browser clients.
                 if (input.IncludeCors) {
+                    var corsInfo = cfgRoot["CorsInfo"];
+                    Console.WriteLine($@"CorsInfo : {corsInfo?.ToString()}");
+                    if (!string.IsNullOrEmpty(corsInfo)) {
+                        var corsInfoDic = corsInfo.ToDictionarySplit('&');
+                        //Some CORS information is present in the appsettings.. We need to give second priority to this.
+                        if (corsInfoDic.TryGetValue("origins",out var corsOrigins) && !string.IsNullOrWhiteSpace(corsOrigins?.ToString()) && (input.AllowedOrigins == null || input.AllowedOrigins.Length < 1)) {
+                            //Allowed origins is not present, so, we go ahead and try to set it from the appsettings.
+                            var origins = corsOrigins.ToString().CleanSplit(';');
+                            input.AllowedOrigins = origins;
+                        }
+
+                        if (corsInfoDic.TryGetValue("strict", out var strictEnforce) && input.RejectInvalidCorsRequests == null) input.RejectInvalidCorsRequests = true; //If strict is present then it means, its true.
+                    }
+
+                    Console.WriteLine($@"Reject Invalid Cors : {input.RejectInvalidCorsRequests}");
+
                     builder.Services.AddCors(o => o.AddPolicy(LOCALCORS, b => {
                         b.AllowAnyMethod()
                             .AllowAnyHeader()
                             //.AllowAnyOrigin() //Not working with latest .NET 8+
                             .SetIsOriginAllowed(origin => {
-                                if (input.AllowedOrigins == null && input.CorsOriginFilter == null) return true; //No restrictions.
+
+                                if (_mode != null && _mode.ConsoleLog) {
+                                    Console.WriteLine($"Incoming Origin: {origin}");
+                                    Console.WriteLine("Allowed Origins:");
+                                    
+                                    foreach (var o in input.AllowedOrigins ?? Array.Empty<string>()) {
+                                        Console.WriteLine($"  > {o}");
+                                    }
+                                }
+
                                 //Level 1 : Check if the origin is in the allowed origins list.
-                                if (input.AllowedOrigins != null && input.AllowedOrigins.Length > 0 && input.AllowedOrigins.Contains(origin)) return true; // no need to check further.
+                                if (input.AllowedOrigins != null && input.AllowedOrigins.Length > 0 && input.AllowedOrigins.Contains(origin,StringComparer.OrdinalIgnoreCase)) return true; // no need to check further.
 
                                 //Level 2 : Check with the user defined filter.
                                 if (input.CorsOriginFilter != null) return input.CorsOriginFilter.Invoke(origin);
 
-                                //Default: reject
+                                //Level 3: No restrictions.
+                                if (input.AllowedOrigins == null && input.CorsOriginFilter == null) return true; //No restrictions.
+
+                                if (_mode != null && _mode.ConsoleLog) Console.WriteLine($@"CORS : Origin {origin} not allowed");
+
                                 return false;
                                 })
                             //.SetIsOriginAllowed(origin => new Uri(origin).Host == "localhost") //Allow local host.
@@ -311,7 +343,10 @@ namespace Haley.Utils {
                     app.UseForwardedHeaders();
                 }
 
+                //Cors should always be called before useauthentication, useauthorization and mapcontrollers.
                 if (input.IncludeCors) {
+                    //Validator middle ware should come before UseCors.
+                    app.UseMiddleware<CorsOriginValidatorMiddleWare>(input.AllowedOrigins, input.RejectInvalidCorsRequests ?? false);
                     app.UseCors(LOCALCORS);
                 }
                     // INVOKE USER DEFINED SERVICE USES FOR THE APP

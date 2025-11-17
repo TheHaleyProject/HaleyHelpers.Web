@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace Haley.Models {
     public class FeedbackActionArgs {
-        public bool ThrowExceptions { get; set; }
+        public bool DisplayTraceMessage { get; set; }
         public Func<IActionResult?, Task> Handler { get; set; }
     }
 }

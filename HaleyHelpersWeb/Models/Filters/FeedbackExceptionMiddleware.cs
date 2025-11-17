@@ -7,11 +7,11 @@ using System.Text;
 namespace Haley.Models {
     public class FeedbackExceptionMiddleware  {
         RequestDelegate _next;
-        bool _isDevelopment;
+        bool _debugMode;
         ILogger _logger;
-        public FeedbackExceptionMiddleware(RequestDelegate next, bool isDev, ILoggerProvider loggerProvider) {
+        public FeedbackExceptionMiddleware(RequestDelegate next, bool debugMode, ILoggerProvider loggerProvider) {
             _next = next;
-            _isDevelopment = isDev;
+            _debugMode = debugMode;
             _logger = loggerProvider?.CreateLogger("Exception Handler");
         }
 
@@ -21,7 +21,7 @@ namespace Haley.Models {
             } catch (Exception ex) {
                 var feedback = new Feedback {
                     Message = "Unhandled exception occurred.",
-                    Trace = _isDevelopment ? ex.ToString() : null,
+                    Trace = _debugMode ? ex.ToString() : null,
                     Status = false
                 };
                 var sb = new StringBuilder();

@@ -7,11 +7,11 @@ using System.Text;
 namespace Haley.Models {
     public class FeedbackExceptionMiddleware  {
         RequestDelegate _next;
-        bool _debugMode;
+        AppFlags _flags;
         ILogger _logger;
-        public FeedbackExceptionMiddleware(RequestDelegate next, bool debugMode, ILoggerProvider loggerProvider) {
+        public FeedbackExceptionMiddleware(RequestDelegate next, ILoggerProvider loggerProvider,AppFlags appFlags) {
             _next = next;
-            _debugMode = debugMode;
+            _flags = appFlags ?? new AppFlags();
             _logger = loggerProvider?.CreateLogger("Exception Handler");
         }
 
@@ -21,7 +21,7 @@ namespace Haley.Models {
             } catch (Exception ex) {
                 var feedback = new Feedback {
                     Message = "Unhandled exception occurred.",
-                    Trace = _debugMode ? ex.ToString() : null,
+                    Trace = _flags.Debug? ex.ToString() : null,
                     Status = false
                 };
                 var sb = new StringBuilder();
@@ -35,9 +35,11 @@ namespace Haley.Models {
                 _logger?.LogError(err);
                 Console.WriteLine(err);
 
-                context.Response.StatusCode = 500;
-                context.Response.ContentType = "application/json";
-                await context.Response.WriteAsJsonAsync(feedback);
+                if (context != null) {
+                    context.Response.StatusCode = 500;
+                    context.Response.ContentType = "application/json";
+                    await context.Response.WriteAsJsonAsync(feedback);
+                }
             }
         }
     }

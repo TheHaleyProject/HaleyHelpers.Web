@@ -31,7 +31,7 @@ namespace Haley.Utils {
 
         public WebApplication Build() {
             if (inst.appInput == null) inst.appInput = new AppMakerInput(null, null); //Generate a dummy appmaker input without any parameters.
-            return GetAppInternal(inst.appInput);
+            return ComputeWebApplication(inst.appInput);
         }
 
         public AppMaker UseAuth(bool use_authentication = false, bool use_authorization = false) {
@@ -84,10 +84,10 @@ namespace Haley.Utils {
         }
 
         public AppMaker WithCors(bool add_cors = true, Func<string, bool>? originFilter = null, string[]? allowedOrigins = null, bool? reject_invalid_requests = null) {
-            appInput.CorsOriginFilter = originFilter; //if origin filter is null
-            appInput.AllowedOrigins = allowedOrigins; //if origin filter is null
-            appInput.IncludeCors = add_cors;
-            appInput.RejectInvalidCorsRequests = reject_invalid_requests;
+            appInput.Cors.CorsOriginFilter = originFilter; //if origin filter is null
+            appInput.Cors.AllowedOrigins = allowedOrigins; //if origin filter is null
+            appInput.Cors.IncludeCors = add_cors;
+            appInput.Cors.RejectInvalidCorsRequests = reject_invalid_requests;
             return this;
         }
 
@@ -202,153 +202,159 @@ namespace Haley.Utils {
             });
         }
 
-        static WebApplication GetAppInternal(AppMakerInput input) {
+        static WebApplicationBuilder ComputeBuilder(AppMakerInput input) {
+            //SETUP THE DB ADAPTER DICTIONARY
+            var builder = WebApplication.CreateBuilder(input.Args);
+            List<string> allpaths = new List<string>(); //Json paths.
+            if (input.JsonPathsProvider != null) {
+                var jpaths = input.JsonPathsProvider.Invoke();
+                if (jpaths != null && jpaths.Count() > 0) {
+                    allpaths.AddRange(jpaths.Select(q => q.ToLower().Trim()));
+                }
+            }
+
+            if (allpaths != null && allpaths.Count > 0) {
+                allpaths = allpaths.Distinct().ToList(); //Remove duplicates
+            }
+
+            var cfgRoot = ResourceUtils.GenerateConfigurationRoot();
+
+
+            if (input.DBGateway is AdapterGateway dbs) {
+                dbs.SetConfigurationRoot(allpaths?.ToArray()).Configure().SetServiceUtil(new DBAServiceUtil());
+                dbs.Updated += () => { JWTParams = cfgRoot?.GetSection("Authentication:JWT")?.Get<JWTParameters>(); };
+            }
+
+            builder.Services.AddSingleton<IAdapterGateway>(input.DBGateway);
+
+            if (input.DBGateway is IModularGateway mg) {
+                builder.Services.AddSingleton<IModularGateway>(mg);
+            }
+
+            if (input.AddFeedbackFilter) {
+                var fbFilterArgs = new FeedbackActionArgs();
+                fbFilterArgs.DisplayTraceMessage = input.DisplayTraceMessage;
+                fbFilterArgs.Handler = input.FeedbackFilterHandler;
+                builder.Services.AddSingleton(fbFilterArgs);
+            }
+
+            if (input.Cors.IncludeCors) builder.Services.AddSingleton(input.Cors);
+
+            //ADD BASIC SERVICES
+            builder.Services
+                .AddControllers(o => { if (input.AddFeedbackFilter) o.Filters.Add<FeedbackActionFilter>(); }) //Note that this is a delegate, provider. So, dont' try to add any items to the dependency injection after you have initialized your builder.. All services should be added before builder.build() method. This controller, however will be called later.
+                .AddJsonOptions(o => {
+                    o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+                });
+            builder.Services.AddEndpointsApiExplorer(); //Which registers all the endpoints
+
+            //ADD SWAGGER (only if it is not disabled by user)
+            if (!input.DisableSwagger && (builder.Environment.IsDevelopment() || input.IncludeSwaggerInProduction)) {
+                builder.Services.AddSwaggerGen(gen => GenerateSwagger(gen, input.SwaggerSchemes));
+            }
+
+            //ADD AUTHENTICATION AND AUTHORIZATION
+            if (input.IncludeDefaultJWTAuth && JWTParams != null) {
+                builder.Services.AddAuthentication(p => {
+                    p.DefaultAuthenticateScheme = BaseSchemeNames.HEADER_BEARER_JWT;
+                    p.DefaultChallengeScheme = BaseSchemeNames.HEADER_BEARER_JWT;
+                }).AddJwtBearerScheme(BaseSchemeNames.HEADER_BEARER_JWT, JWTUtilEx.ConfigureDefaultJWTAuth);
+                builder.Services.AddAuthorization();
+            }
+
+            //CORS (REMEMBER: CORS IS ENFORCED ONLY BY THE BROWSERS and NOT BY THE SERVERS).. So, it is useless to add CORS if your clients are not browsers. 
+            //CORS doesn't stop postman, CURL, .net client, bots, or other non-browser clients.
+            if (input.Cors.IncludeCors) {
+                var corsInfo = cfgRoot["CorsInfo"];
+                Console.WriteLine($@"CorsInfo : {corsInfo?.ToString()}");
+                if (!string.IsNullOrEmpty(corsInfo)) {
+                    var corsInfoDic = corsInfo.ToDictionarySplit('&');
+                    //Some CORS information is present in the appsettings.. We need to give second priority to this.
+                    if (corsInfoDic.TryGetValue("origins", out var corsOrigins) && !string.IsNullOrWhiteSpace(corsOrigins?.ToString()) && (input.Cors.AllowedOrigins == null || input.Cors.AllowedOrigins.Length < 1)) {
+                        //Allowed origins is not present, so, we go ahead and try to set it from the appsettings.
+                        var origins = corsOrigins.ToString().CleanSplit(';');
+                        input.Cors.AllowedOrigins = origins;
+                    }
+
+                    if (corsInfoDic.TryGetValue("strict", out var strictEnforce) && input.Cors.RejectInvalidCorsRequests == null) input.Cors.RejectInvalidCorsRequests = true; //If strict is present then it means, its true.
+                }
+
+                Console.WriteLine($@"Reject Invalid Cors : {input.Cors.RejectInvalidCorsRequests}");
+
+                builder.Services.AddCors(o => o.AddPolicy(LOCALCORS, b => {
+                    b.AllowAnyMethod()
+                        .AllowAnyHeader()
+                        //.AllowAnyOrigin() //Not working with latest .NET 8+
+                        .SetIsOriginAllowed(origin => {
+
+                            if (_mode != null && _mode.ConsoleLog) {
+                                Console.WriteLine($"Incoming Origin: {origin}");
+                                Console.WriteLine("Allowed Origins:");
+
+                                foreach (var o in input.Cors.AllowedOrigins ?? Array.Empty<string>()) {
+                                    Console.WriteLine($"  > {o}");
+                                }
+                            }
+
+                            //Level 1 : Check if the origin is in the allowed origins list.
+                            if (input.Cors.AllowedOrigins != null && input.Cors.AllowedOrigins.Length > 0 && input.Cors.AllowedOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase)) return true; // no need to check further.
+
+                            //Level 2 : Check with the user defined filter.
+                            if (input.Cors.CorsOriginFilter != null) return input.Cors.CorsOriginFilter.Invoke(origin);
+
+                            //Level 3: No restrictions.
+                            if (input.Cors.AllowedOrigins == null && input.Cors.CorsOriginFilter == null) return true; //No restrictions.
+
+                            if (_mode != null && _mode.ConsoleLog) Console.WriteLine($@"CORS : Origin {origin} not allowed");
+
+                            return false;
+                        })
+                        //.SetIsOriginAllowed(origin => new Uri(origin).Host == "localhost") //Allow local host.
+                        .AllowCredentials();
+
+                    if (input.ExposedHeaders != null && input.ExposedHeaders.Count > 0) {
+                        b.WithExposedHeaders(input.ExposedHeaders.ToArray()); // params string[]
+                    }
+                }));
+            }
+
+            //HEADERS FORWARD
+            if (input.AddForwardedHeaders) {
+                builder.Services.Configure<ForwardedHeadersOptions>(options =>
+                {
+                    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor |
+                        ForwardedHeaders.XForwardedProto;
+                    // Only loopback proxies are allowed by default.
+                    // Clear that restriction because forwarders are enabled by explicit 
+                    // configuration.
+                    options.KnownNetworks.Clear();
+                    options.KnownProxies.Clear();
+                });
+            }
+
+            //INVOKE USER DEFINED SERVICE ADDITION
+            input.BuilderProcessor?.Invoke(builder);
+            //builder.Logging.ClearProviders(); //only for production.
+
+            return builder;
+        }
+
+        static WebApplication ComputeWebApplication(AppMakerInput input) {
 
             try {
-                //SETUP THE DB ADAPTER DICTIONARY
-                var builder = WebApplication.CreateBuilder(input.Args);
-                List<string> allpaths = new List<string>(); //Json paths.
-                if (input.JsonPathsProvider != null) {
-                    var jpaths = input.JsonPathsProvider.Invoke();
-                    if (jpaths != null && jpaths.Count() > 0) {
-                        allpaths.AddRange(jpaths.Select(q => q.ToLower().Trim()));
-                    }
-                }
-
-                if (allpaths != null && allpaths.Count > 0) {
-                    allpaths = allpaths.Distinct().ToList(); //Remove duplicates
-                }
-
-                var cfgRoot = ResourceUtils.GenerateConfigurationRoot();
-
-
-                if (input.DBGateway is AdapterGateway dbs) {
-                    dbs.SetConfigurationRoot(allpaths?.ToArray()).Configure().SetServiceUtil(new DBAServiceUtil());
-                    dbs.Updated += ()=> { JWTParams = cfgRoot?.GetSection("Authentication:JWT")?.Get<JWTParameters>(); };
-                }
-
-                builder.Services.AddSingleton<IAdapterGateway>(input.DBGateway);
-                if (input.AddFeedbackFilter) {
-                    var fbFilterArgs = new FeedbackActionArgs();
-                    fbFilterArgs.DisplayTraceMessage = input.DisplayTraceMessage;
-                    fbFilterArgs.Handler = input.FeedbackFilterHandler;
-                    builder.Services.AddSingleton(fbFilterArgs);
-                }
-
-                if (input.DBGateway is IModularGateway mg) {
-                    builder.Services.AddSingleton<IModularGateway>(mg);
-                }
-
-                //ADD BASIC SERVICES
-                builder.Services
-                    .AddControllers(o => {
-                        if (input.AddFeedbackFilter) o.Filters.Add<FeedbackActionFilter>();
-                    })
-                    .AddJsonOptions(o=> 
-                    { o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()); 
-                    });
-                builder.Services.AddEndpointsApiExplorer(); //Which registers all the endpoints
-
-                //ADD SWAGGER (only if it is not disabled by user)
-                if (!input.DisableSwagger && (builder.Environment.IsDevelopment() || input.IncludeSwaggerInProduction)) {
-                    builder.Services.AddSwaggerGen(gen => GenerateSwagger(gen, input.SwaggerSchemes));
-                }
-
-                //ADD AUTHENTICATION AND AUTHORIZATION
-                if (input.IncludeDefaultJWTAuth && JWTParams != null) {
-                    builder.Services.AddAuthentication(p => {
-                        p.DefaultAuthenticateScheme = BaseSchemeNames.HEADER_BEARER_JWT;
-                        p.DefaultChallengeScheme = BaseSchemeNames.HEADER_BEARER_JWT;
-                    }).AddJwtBearerScheme(BaseSchemeNames.HEADER_BEARER_JWT, JWTUtilEx.ConfigureDefaultJWTAuth);
-                    builder.Services.AddAuthorization();
-                }
-
-                //CORS (REMEMBER: CORS IS ENFORCED ONLY BY THE BROWSERS and NOT BY THE SERVERS).. So, it is useless to add CORS if your clients are not browsers. 
-                //CORS doesn't stop postman, CURL, .net client, bots, or other non-browser clients.
-                if (input.IncludeCors) {
-                    var corsInfo = cfgRoot["CorsInfo"];
-                    Console.WriteLine($@"CorsInfo : {corsInfo?.ToString()}");
-                    if (!string.IsNullOrEmpty(corsInfo)) {
-                        var corsInfoDic = corsInfo.ToDictionarySplit('&');
-                        //Some CORS information is present in the appsettings.. We need to give second priority to this.
-                        if (corsInfoDic.TryGetValue("origins",out var corsOrigins) && !string.IsNullOrWhiteSpace(corsOrigins?.ToString()) && (input.AllowedOrigins == null || input.AllowedOrigins.Length < 1)) {
-                            //Allowed origins is not present, so, we go ahead and try to set it from the appsettings.
-                            var origins = corsOrigins.ToString().CleanSplit(';');
-                            input.AllowedOrigins = origins;
-                        }
-
-                        if (corsInfoDic.TryGetValue("strict", out var strictEnforce) && input.RejectInvalidCorsRequests == null) input.RejectInvalidCorsRequests = true; //If strict is present then it means, its true.
-                    }
-
-                    Console.WriteLine($@"Reject Invalid Cors : {input.RejectInvalidCorsRequests}");
-
-                    builder.Services.AddCors(o => o.AddPolicy(LOCALCORS, b => {
-                        b.AllowAnyMethod()
-                            .AllowAnyHeader()
-                            //.AllowAnyOrigin() //Not working with latest .NET 8+
-                            .SetIsOriginAllowed(origin => {
-
-                                if (_mode != null && _mode.ConsoleLog) {
-                                    Console.WriteLine($"Incoming Origin: {origin}");
-                                    Console.WriteLine("Allowed Origins:");
-                                    
-                                    foreach (var o in input.AllowedOrigins ?? Array.Empty<string>()) {
-                                        Console.WriteLine($"  > {o}");
-                                    }
-                                }
-
-                                //Level 1 : Check if the origin is in the allowed origins list.
-                                if (input.AllowedOrigins != null && input.AllowedOrigins.Length > 0 && input.AllowedOrigins.Contains(origin,StringComparer.OrdinalIgnoreCase)) return true; // no need to check further.
-
-                                //Level 2 : Check with the user defined filter.
-                                if (input.CorsOriginFilter != null) return input.CorsOriginFilter.Invoke(origin);
-
-                                //Level 3: No restrictions.
-                                if (input.AllowedOrigins == null && input.CorsOriginFilter == null) return true; //No restrictions.
-
-                                if (_mode != null && _mode.ConsoleLog) Console.WriteLine($@"CORS : Origin {origin} not allowed");
-
-                                return false;
-                                })
-                            //.SetIsOriginAllowed(origin => new Uri(origin).Host == "localhost") //Allow local host.
-                            .AllowCredentials();
-
-                        if (input.ExposedHeaders != null && input.ExposedHeaders.Count > 0) {
-                            b.WithExposedHeaders(input.ExposedHeaders.ToArray()); // params string[]
-                        }
-                    }));
-                }
-
-                //HEADERS FORWARD
-                if (input.AddForwardedHeaders) {
-                    builder.Services.Configure<ForwardedHeadersOptions>(options =>
-                    {
-                        options.ForwardedHeaders = ForwardedHeaders.XForwardedFor |
-                            ForwardedHeaders.XForwardedProto;
-                        // Only loopback proxies are allowed by default.
-                        // Clear that restriction because forwarders are enabled by explicit 
-                        // configuration.
-                        options.KnownNetworks.Clear();
-                        options.KnownProxies.Clear();
-                    });
-                }
-
-                //INVOKE USER DEFINED SERVICE ADDITION
-                input.BuilderProcessor?.Invoke(builder);
-                //builder.Logging.ClearProviders(); //only for production.
-
+                var builder = ComputeBuilder(input);
                 var app = builder.Build();
-
                 if (input.AddForwardedHeaders) {
                     app.UseForwardedHeaders();
                 }
 
                 //Cors should always be called before useauthentication, useauthorization and mapcontrollers.
-                if (input.IncludeCors) {
+                if (input.Cors.IncludeCors) {
                     //Validator middle ware should come before UseCors.
-                    if (input.RejectInvalidCorsRequests != null && input.RejectInvalidCorsRequests.Value && input.AllowedOrigins != null && input.AllowedOrigins.Length > 0) {
-                        app.UseMiddleware<CorsOriginValidatorMiddleWare>(input.AllowedOrigins);
+                    if (input.Cors.RejectInvalidCorsRequests != null && input.Cors.RejectInvalidCorsRequests.Value && input.Cors.AllowedOrigins != null && input.Cors.AllowedOrigins.Length > 0) {
+                        app.UseMiddleware<CorsOriginValidatorMiddleWare>();
                     }
+
                     app.UseCors(LOCALCORS);
                 }
                     // INVOKE USER DEFINED SERVICE USES FOR THE APP

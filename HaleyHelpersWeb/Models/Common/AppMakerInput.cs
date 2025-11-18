@@ -18,19 +18,16 @@ namespace Haley.Models {
             set { _dbs = value; }
         }
         internal string[] Args { get; set; }
+        internal CorsInfo Cors { get; set; } = new CorsInfo();
         internal Action<WebApplicationBuilder> BuilderProcessor { get; set; }
         internal Action<WebApplication> AppProcessor { get; set; }
         internal Func<string[]> JsonPathsProvider { get; set; }
-        internal Func<string, bool>? CorsOriginFilter { get; set; }
-        internal string[]? AllowedOrigins { get; set; }
         internal List<string> ExposedHeaders { get; set; } = new List<string> { "Content-Disposition" };
         internal bool IncludeSwaggerInProduction { get; set; }
         internal bool DisableSwagger { get; set; }
         internal bool IncludeDefaultJWTAuth { get; set; } = false;
         internal bool HttpsRedirection { get; set; } = true;
         internal bool AddForwardedHeaders { get; set; } = true;
-        internal bool IncludeCors { get; set; }
-        internal bool? RejectInvalidCorsRequests { get; set; }
         internal bool UseAuthentication { get; set; } = false;
         internal bool UseAuthorization { get; set; } = false;
         internal bool AddFeedbackFilter { get; set; }

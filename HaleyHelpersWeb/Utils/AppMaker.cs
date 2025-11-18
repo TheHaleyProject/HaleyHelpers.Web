@@ -346,7 +346,9 @@ namespace Haley.Utils {
                 //Cors should always be called before useauthentication, useauthorization and mapcontrollers.
                 if (input.IncludeCors) {
                     //Validator middle ware should come before UseCors.
-                    app.UseMiddleware<CorsOriginValidatorMiddleWare>(input.AllowedOrigins, input.RejectInvalidCorsRequests ?? false);
+                    if (input.RejectInvalidCorsRequests != null && input.RejectInvalidCorsRequests.Value && input.AllowedOrigins != null && input.AllowedOrigins.Length > 0) {
+                        app.UseMiddleware<CorsOriginValidatorMiddleWare>(input.AllowedOrigins);
+                    }
                     app.UseCors(LOCALCORS);
                 }
                     // INVOKE USER DEFINED SERVICE USES FOR THE APP

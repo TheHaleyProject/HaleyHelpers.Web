@@ -7,16 +7,14 @@ using System.Text;
 namespace Haley.Models {
     public class CorsOriginValidatorMiddleWare {
         private readonly RequestDelegate _next;
-        private readonly string[]? _allowedOrigins;
-        private readonly bool? _enabled;
-        public CorsOriginValidatorMiddleWare(RequestDelegate next, string[]? allowedOrigins, bool? enabled) {
+        private readonly string[] _allowedOrigins;
+        public CorsOriginValidatorMiddleWare(RequestDelegate next, string[] allowedOrigins) {
             _next = next;
             _allowedOrigins = allowedOrigins ?? Array.Empty<string>();
-            _enabled = enabled;
         }
 
         public async Task InvokeAsync(HttpContext context) {
-            if (_enabled == null || !_enabled.Value || _allowedOrigins == null || _allowedOrigins.Length < 1) {
+            if (_allowedOrigins == null || _allowedOrigins.Length < 1) {
                 await _next(context);
                 return;
             }

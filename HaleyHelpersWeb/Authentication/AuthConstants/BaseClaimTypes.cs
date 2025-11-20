@@ -12,6 +12,7 @@
         public const string PROJECT_ID = nameof(PROJECT_ID);
         public const string SUBSCRIPTION_ID = nameof(SUBSCRIPTION_ID);
         public const string TENANT_ID = nameof(TENANT_ID);
+        public const string SESSION_ID = nameof(SESSION_ID);
 
         //Base 
         public const string CAN_EDIT = nameof(CAN_EDIT);

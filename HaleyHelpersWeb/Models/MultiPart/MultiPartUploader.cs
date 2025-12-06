@@ -48,12 +48,12 @@ namespace Haley.Models {
     public class MultiPartUploader
     {
         private readonly FormOptions _defaultFormOptions = new FormOptions();
-        Func<MultipartFileInfo, Task<IStorageOperationResponse>> _fileHandler;
+        Func<MultipartFileInfo, Task<IVaultResponse>> _fileHandler;
         Func<MultipartDataInfo, Task<bool>> _dataHandler;
         Func<MultipartValidationInfo , Task<IFeedback<long?>>> _validationHandler;
         long _defaultMaxFileSizeinMb = 0;
         bool _throwExceptions = false;
-        public MultiPartUploader(Func<MultipartFileInfo, Task<IStorageOperationResponse>> fileSectionHandler, Func<MultipartDataInfo, Task<bool>> dataSectionHandler, Func<MultipartValidationInfo, Task<IFeedback<long?>>> validationHandler, int? max_size, bool throwExceptions) {
+        public MultiPartUploader(Func<MultipartFileInfo, Task<IVaultResponse>> fileSectionHandler, Func<MultipartDataInfo, Task<bool>> dataSectionHandler, Func<MultipartValidationInfo, Task<IFeedback<long?>>> validationHandler, int? max_size, bool throwExceptions) {
             _fileHandler = fileSectionHandler ?? throw new ArgumentNullException(nameof(fileSectionHandler));
             _dataHandler = dataSectionHandler; //Can be empty, we dont need them
             _validationHandler = validationHandler; //Can be empty.
@@ -63,12 +63,12 @@ namespace Haley.Models {
             //if (_defaultMaxFileSizeinMb > 10000) _defaultMaxFileSizeinMb = 10000; // 10 GB limit
         }
 
-        public async Task<MultipartUploadSummary> UploadFileAsync(HttpRequest request, IStorageWriteRequest upRequest)
+        public async Task<MultipartUploadSummary> UploadFileAsync(HttpRequest request, IVaultWriteRequest upRequest)
         {
              return await UploadFileAsync(request.Body, request.ContentType, upRequest);
         }
      
-        public async Task<MultipartUploadSummary> UploadFileAsync(Stream stream, string contentType, IStorageWriteRequest upRequest) {
+        public async Task<MultipartUploadSummary> UploadFileAsync(Stream stream, string contentType, IVaultWriteRequest upRequest) {
             var dataSections = new List<(string Key, string Value)>();
             var fileSections = new List<(string FileName, string TempPath, string cd_key, string ContentType)>();
             try {
@@ -101,7 +101,7 @@ namespace Haley.Models {
             }
         }
 
-        async Task<long> UploadFileAsync(MultipartUploadSummary result, IStorageWriteRequest upRequest, List<(string Key, string Value)> dataSections, List<(string FileName, string TempPath, string cd_key, string ContentType)> fileSections) {
+        async Task<long> UploadFileAsync(MultipartUploadSummary result, IVaultWriteRequest upRequest, List<(string Key, string Value)> dataSections, List<(string FileName, string TempPath, string cd_key, string ContentType)> fileSections) {
             long totalBytesUploaded = 0;
 
             // ---- Handle metadata ----
@@ -125,16 +125,16 @@ namespace Haley.Models {
             foreach (var file in fileSections) {
                 if (_fileHandler == null) throw new ArgumentException("File handler is mandatory.");
 
-                var reqClone = upRequest.Clone() as IStorageWriteRequest;
+                var reqClone = upRequest.Clone() as IVaultWriteRequest;
                 reqClone?.GenerateCallId(); //For tracking purpose and also to use it for all the transactions associated with this.
-                if (reqClone == null) throw new ArgumentException($"Unable to clone {nameof(IStorageWriteRequest)} object.");
+                if (reqClone == null) throw new ArgumentException($"Unable to clone {nameof(IVaultWriteRequest)} object.");
 
                 await using var tempStream = new FileStream(file.TempPath, FileMode.Open, FileAccess.Read);
                 reqClone.FileStream = tempStream;
                 reqClone.FileOriginalName = file.FileName;
                 reqClone.SetTargetName(file.FileName);
 
-                IStorageOperationResponse saveSummary = new StorageOperationResponse() { Status = false };
+                IVaultResponse saveSummary = new VaultResponse() { Status = false };
                 try {
                     var fileInfo = new MultipartFileInfo() {
                         Request = reqClone,
@@ -207,7 +207,7 @@ namespace Haley.Models {
                             if (!validationFb.Status) {
                                 var msg = $"File '{fileName}' rejected by validation handler. Reason {validationFb.Message}";
                                 if (_throwExceptions) throw new Exception(msg);
-                                var failedResponse = new StorageOperationResponse {
+                                var failedResponse = new VaultResponse {
                                     RawName = fileName,
                                     Status = false,
                                     Message = msg
@@ -244,7 +244,7 @@ namespace Haley.Models {
                                     var msg = $"File '{fileName}' exceeds default limit {maxAllowed / 1024 / 1024} MB.";
                                     if (_throwExceptions) throw new Exception(msg);
 
-                                    var failedResponse = new StorageOperationResponse {
+                                    var failedResponse = new VaultResponse {
                                         RawName = fileName,
                                         Status = false,
                                         Message = msg

@@ -9,15 +9,15 @@ using System.Text;
 
 namespace Haley.Utils {
     public static class WebAuthUtils {
-        public static AuthenticationBuilder AddAzureSamlScheme(this AuthenticationBuilder builder, string schemeName = BaseSchemeNames.FORM_TOKEN_AZURE_SAML, Action<SamlAuthOptions>? configure = null) {
+        public static AuthenticationBuilder AddAzureSamlScheme(this AuthenticationBuilder builder, string schemeName = BaseSchemeNames.FORM_TOKEN_AZURE_SAML, Action<SamlAuthOptions>? configure = null, string configPath = "Saml:Azure") {
             var configuration = ResourceUtils.GenerateConfigurationRoot();
             if (configuration == null) throw new InvalidOperationException("Failed to load configuration.");
             // Pull section: Saml:Azure
-            var section = configuration.GetSection("Saml:Azure");
-            if (!section.Exists()) throw new InvalidOperationException("Missing 'Saml:Azure' section in configuration.");
+            var section = configuration.GetSection(configPath);
+            if (!section.Exists()) throw new InvalidOperationException($@"Missing '{configPath}' section in configuration.");
 
-            var spEntityId = section["SpEntityId"] ?? throw new InvalidOperationException("Saml:Azure:SpEntityId is required");
-            var acsUrl = section["AcsUrl"] ?? throw new InvalidOperationException("Saml:Azure:AcsUrl is required");
+            var spEntityId = section["SpEntityId"] ?? throw new InvalidOperationException($@"{configPath}:SpEntityId is required");
+            var acsUrl = section["AcsUrl"] ?? throw new InvalidOperationException($@"{configPath}:AcsUrl is required");
             var idpMetadataUrl = section["IdpMetadataUrl"] ?? string.Empty;
 
             // ----- Certificate handling -----

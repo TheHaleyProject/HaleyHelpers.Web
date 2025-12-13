@@ -36,7 +36,7 @@ namespace Haley.Models {
                 DB = p.Info.DBName,
                 Schema = p.Info.SchemaName,
                 Key = p.Info.AdapterKey,
-                Host = AdapterGateway.ParseConnectionString(p.Info.ConnectionString,"host=")
+                Host = p.Info.ConnectionString.GetValue("host",';')
             });
         }
     }

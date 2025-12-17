@@ -323,7 +323,7 @@ namespace Haley.Utils {
                 builder.Services.Configure<ForwardedHeadersOptions>(options =>
                 {
                     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor |
-                        ForwardedHeaders.XForwardedProto;
+                        ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;
                     // Only loopback proxies are allowed by default.
                     // Clear that restriction because forwarders are enabled by explicit 
                     // configuration.

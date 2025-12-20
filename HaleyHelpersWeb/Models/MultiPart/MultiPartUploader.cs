@@ -63,12 +63,12 @@ namespace Haley.Models {
             //if (_defaultMaxFileSizeinMb > 10000) _defaultMaxFileSizeinMb = 10000; // 10 GB limit
         }
 
-        public async Task<MultipartUploadSummary> UploadFileAsync(HttpRequest request, IVaultWriteRequest upRequest)
+        public async Task<MultipartUploadSummary> UploadFileAsync(HttpRequest request, IVaultFileWriteRequest upRequest)
         {
              return await UploadFileAsync(request.Body, request.ContentType, upRequest);
         }
      
-        public async Task<MultipartUploadSummary> UploadFileAsync(Stream stream, string contentType, IVaultWriteRequest upRequest) {
+        public async Task<MultipartUploadSummary> UploadFileAsync(Stream stream, string contentType, IVaultFileWriteRequest upRequest) {
             var dataSections = new List<(string Key, string Value)>();
             var fileSections = new List<(string FileName, string TempPath, string cd_key, string ContentType)>();
             try {
@@ -101,7 +101,7 @@ namespace Haley.Models {
             }
         }
 
-        async Task<long> UploadFileAsync(MultipartUploadSummary result, IVaultWriteRequest upRequest, List<(string Key, string Value)> dataSections, List<(string FileName, string TempPath, string cd_key, string ContentType)> fileSections) {
+        async Task<long> UploadFileAsync(MultipartUploadSummary result, IVaultFileWriteRequest upRequest, List<(string Key, string Value)> dataSections, List<(string FileName, string TempPath, string cd_key, string ContentType)> fileSections) {
             long totalBytesUploaded = 0;
 
             // ---- Handle metadata ----
@@ -125,9 +125,9 @@ namespace Haley.Models {
             foreach (var file in fileSections) {
                 if (_fileHandler == null) throw new ArgumentException("File handler is mandatory.");
 
-                var reqClone = upRequest.Clone() as IVaultWriteRequest;
+                var reqClone = upRequest.Clone() as IVaultFileWriteRequest;
                 reqClone?.GenerateCallId(); //For tracking purpose and also to use it for all the transactions associated with this.
-                if (reqClone == null) throw new ArgumentException($"Unable to clone {nameof(IVaultWriteRequest)} object.");
+                if (reqClone == null) throw new ArgumentException($"Unable to clone {nameof(IVaultFileWriteRequest)} object.");
 
                 await using var tempStream = new FileStream(file.TempPath, FileMode.Open, FileAccess.Read);
                 reqClone.FileStream = tempStream;

@@ -7,9 +7,6 @@
     <OutputType>Library</OutputType>
     <RootNamespace>Haley</RootNamespace>
     <AssemblyName>Haley.Helpers.Web</AssemblyName>
-    <Authors>TheHaleyProject</Authors>
-    <Company>TheHaleyProject</Company>
-    <Copyright>Haley 2024</Copyright>
     <SignAssembly>True</SignAssembly>
     <IsPackable>true</IsPackable>
     <AssemblyOriginatorKeyFile>..\..\HaleyProject\HaleyProject.snk</AssemblyOriginatorKeyFile>
@@ -24,7 +21,6 @@
     <RepositoryUrl>https://github.com/TheHaleyProject/HaleyHelpers.Web</RepositoryUrl>
     <OpenApiGenerateDocuments>false</OpenApiGenerateDocuments>
     <Description>A tiny tool to quickly setup a webAPI.</Description>
-    <RepositoryType>git</RepositoryType>
   </PropertyGroup>
 
   <ItemGroup>

@@ -97,6 +97,10 @@ namespace Haley.Utils {
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellation_token);
                 var linkedToken = cts.Token;
 
+                if (client.BaseAddress != null) {
+                    proxyRequest.Headers.Host = client.BaseAddress.Host;
+                }
+                
                 // Send request and stream response
                 var response = await client.SendAsync(proxyRequest, HttpCompletionOption.ResponseHeadersRead, linkedToken);
                 if (!response.IsSuccessStatusCode) {

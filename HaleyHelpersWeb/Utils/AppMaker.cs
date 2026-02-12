@@ -10,6 +10,8 @@ using Microsoft.AspNetCore.Authentication;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using System.Runtime.CompilerServices;
 using System.Reflection;
+using System.Reflection.Metadata.Ecma335;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Haley.Utils {
     //https://stackoverflow.com/questions/49694383/use-multiple-jwt-bearer-authentication
@@ -44,6 +46,11 @@ namespace Haley.Utils {
             if (!string.IsNullOrWhiteSpace(input.SchemeName) && !appInput.SwaggerSchemes.Any(p => p.SchemeName == input.SchemeName)) {
                 appInput.SwaggerSchemes.Add(input);
             }
+            return this;
+        }
+
+        public AppMaker AddDefaultAuthorizationHandlers(bool toggle = true) {
+            appInput.EnableDefaultAuthorizationHandlers = toggle;
             return this;
         }
 
@@ -247,6 +254,15 @@ namespace Haley.Utils {
                     o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
                 });
             builder.Services.AddEndpointsApiExplorer(); //Which registers all the endpoints
+
+            //ADD AUTHORIZAITON HANDLERS
+            if (input.EnableDefaultAuthorizationHandlers) {
+                builder.Services.AddHttpContextAccessor();
+                builder.Services.AddScoped<IAuthorizationHandler, EnforcePolicySchemeHandler>(); //For enforcing policies
+                builder.Services.AddScoped<IAuthorizationHandler, MustUseSchemeHandler>(); //For custom policies
+                builder.Services.AddScoped<IAuthorizationHandler, MinimumAgeHandler>(); //Sample, minimum age handler
+            }
+
 
             //ADD SWAGGER (only if it is not disabled by user)
             if (!input.DisableSwagger && (builder.Environment.IsDevelopment() || input.IncludeSwaggerInProduction)) {

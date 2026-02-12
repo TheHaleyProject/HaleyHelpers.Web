@@ -5,8 +5,10 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
 using System.Net.Mime;
+using System.Reflection.PortableExecutable;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
+using System.Text.RegularExpressions;
 
 namespace Haley.Models {
     public abstract class PlainAuthHandlerBase<T> : AuthenticationHandler<T> where T: PlainAuthOptions,new() {
@@ -102,6 +104,7 @@ namespace Haley.Models {
                 case PlainAuthMode.Cookie:
                 case PlainAuthMode.FormToken:
                 case PlainAuthMode.QueryToken:
+                case PlainAuthMode.HeaderJWT:
                     return true;
                 case PlainAuthMode.AzureSAML:
                     return false;
@@ -116,10 +119,14 @@ namespace Haley.Models {
             string token = string.Empty;
             switch (AuthMode) {
                 case PlainAuthMode.HeaderAuthToken:
-                if (!(Request.Headers.TryGetValue("Authorization", out var authHeader) &&
-                   authHeader.ToString().StartsWith(key, StringComparison.OrdinalIgnoreCase))) return fb;
-               token = authHeader.ToString().Substring((key.Length)).Trim(); //to remove the spaces, if any.
-                break;
+                case PlainAuthMode.HeaderJWT:
+                if (!Request.Headers.TryGetValue("Authorization", out var authHeader) || string.IsNullOrWhiteSpace(authHeader))  return fb;
+                    var keyEscaped = Regex.Escape(key); 
+                    var regex = new Regex($@"(?i)^\s*{keyEscaped}\s*(?<token>.+?)\s*$"); // (?i) for case-insensitive, ^\s* to allow leading spaces
+                    var m = regex.Match(authHeader.ToString());
+                    if (!m.Success) return fb;
+                    token = m.Groups["token"].Value;  // already trimmed by \s*$
+                    break;
                 case PlainAuthMode.HeaderApiKey:
                 if (!Request.Headers.TryGetValue(key, out var apiKeyHeaderValues) || string.IsNullOrWhiteSpace(apiKeyHeaderValues.FirstOrDefault())) return fb;
                 token = apiKeyHeaderValues.FirstOrDefault()!.Trim();

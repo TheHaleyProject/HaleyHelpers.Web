@@ -40,7 +40,7 @@ namespace Haley.Utils {
         }
 
         public static AuthenticationBuilder AddJwtBearerScheme(this AuthenticationBuilder builder, string scheme, Action<JwtAuthOptions> configureOptions) {
-            builder.AddScheme<JwtAuthOptions, PlainHeaderAuthTokenHandler>(scheme, options => { }); //Dont set the options, here, otherwise, it will override, the options monitor
+            builder.AddScheme<JwtAuthOptions, PlainHeaderJWTHandler>(scheme, options => { }); //Dont set the options, here, otherwise, it will override, the options monitor
             // Register named options for this scheme
             builder.Services.Configure<JwtAuthOptions>(scheme, configureOptions);
             return builder;

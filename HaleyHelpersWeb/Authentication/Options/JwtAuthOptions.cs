@@ -5,6 +5,6 @@ namespace Haley.Models {
     public class JwtAuthOptions : PlainAuthOptions {
         //public JWTParameters Params { get; set; }
         public TokenValidationParameters ValidationParams { get; set; }
-        public JwtAuthOptions() { base.Key = "Bearer "; }
+        public JwtAuthOptions() { base.Key = "Bearer"; }
     }
 }

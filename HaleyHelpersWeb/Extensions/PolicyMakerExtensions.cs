@@ -10,17 +10,19 @@ namespace Haley.Utils {
         public static void CreateAuthPolicy(this AuthorizationOptions options, string policy_name, string scheme_name, Action<AuthorizationPolicyBuilder>? processor = null) { 
             options.CreateAuthPolicy(policy_name, new string[] { scheme_name }, processor: processor);
         }
-        public static void CreateAuthPolicy(this AuthorizationOptions options, string policy_name, string[] scheme_names, string[] requiredRoles =null, string[] requiredClaims = null, Action<AuthorizationPolicyBuilder>? processor = null, bool allRoles = false, bool allClaims = false) {
+        static void CreateAuthPolicy(this AuthorizationOptions options, string policy_name, string[] scheme_names, string[] requiredRoles =null, string[] requiredClaims = null, IAuthorizationRequirement[] customRequirements = null, Action<AuthorizationPolicyBuilder>? processor = null, bool allRoles = false, bool allClaims = false, bool enforceScheme = false) {
 
             if (string.IsNullOrWhiteSpace(policy_name)) throw new ArgumentNullException("Policy name cannot be null or empty");
-            if (scheme_names == null || scheme_names.Count() < 1) throw new ArgumentNullException("Scheme name cannot be null or empty");
+            //An authorization policy doesn't  need a scheme.. It can authorize from any other sceheme (using the authentication middle ware). We can only force the policy. So, if scheme_names is null or empty, we will not set the scheme in the policy and it will work with any authenticated scheme. But, if scheme_names are provided, then we will set the scheme in the policy and it will work only with the provided schemes.
 
-            var schemes = scheme_names.Where(p => !string.IsNullOrWhiteSpace(p)).Distinct().ToArray();
-            if (schemes.Length < 1) throw new ArgumentNullException("Atleast one valid Scheme name is required");
+            var schemes = scheme_names?.Where(p => !string.IsNullOrWhiteSpace(p)).Distinct().ToArray();
 
-            var policyBuilder = new AuthorizationPolicyBuilder(schemes) //Api Key
-                            .RequireAuthenticatedUser();
+            //WE JUST SPECIFY THAT WE NEED AN AUTHENTICATED USER, THATS IT.. SCHEME DOESN'T MATTER.
+            var policyBuilder = schemes?.Length > 0
+                ? new AuthorizationPolicyBuilder(schemes).RequireAuthenticatedUser()
+                : new AuthorizationPolicyBuilder().RequireAuthenticatedUser();
 
+            //ROLES VALIDATION
             if (requiredRoles != null && requiredRoles.Length > 0) {
                 var roles = requiredRoles.Where(p => !string.IsNullOrWhiteSpace(p)).Distinct().ToList();
                
@@ -36,6 +38,7 @@ namespace Haley.Utils {
                 });
             }
 
+            //CLAIMS VALIDATION
             if (requiredClaims != null && requiredClaims.Length > 0) {
                 var claims = requiredClaims.Where(p => !string.IsNullOrWhiteSpace(p)).Select(q=> q.MapKnownType()).Distinct().ToList();
                 policyBuilder.RequireAssertion(ctx=> {
@@ -46,6 +49,16 @@ namespace Haley.Utils {
                     //policyBuilder.RequireClaim(claim); //issues with MapKnownTypes
                 });
             }
+
+            // CUSTOM REQUIREMENTS HANDLER
+            if (customRequirements != null && customRequirements.Length > 0) {
+                foreach (var requirement in customRequirements) {
+                    policyBuilder.AddRequirements(requirement);
+                }
+            }
+
+            //ENFORCE SCHEME
+            if (enforceScheme) policyBuilder.AddRequirements(new EnforcePolicySchemeRequirement()); 
 
             processor?.Invoke(policyBuilder);
             options.AddPolicy(policy_name, policyBuilder.Build());
@@ -68,16 +81,20 @@ namespace Haley.Utils {
         }
 
         public static AuthPolicyMaker WithSchemes(this AuthorizationOptions options, params string[] scheme_names) => new AuthPolicyMaker() { SchemeNames = scheme_names, Options = options };
+        public static AuthPolicyMaker WithRequirements(this AuthorizationOptions options, params IAuthorizationRequirement[] requirements) => new AuthPolicyMaker() { CustomRequirements = requirements, Options = options };
         public static AuthPolicyMaker RequireRoles(this AuthorizationOptions options, params string[] role_names) => new AuthPolicyMaker() { RoleNames = role_names, Options = options };
         public static AuthPolicyMaker RequireClaims(this AuthorizationOptions options, params string[] claim_names) => new AuthPolicyMaker() { ClaimNames = claim_names, Options = options };
-
         public static AuthPolicyMaker RequireAllRoles(this AuthorizationOptions options, params string[] role_names) => new AuthPolicyMaker() { RoleNames = role_names, Options = options , AllRoles = true};
         public static AuthPolicyMaker RequireAllClaims(this AuthorizationOptions options, params string[] claim_names) => new AuthPolicyMaker() { ClaimNames = claim_names, Options = options, AllClaims = true };
-
         public static AuthPolicyMaker ForPolicy(this AuthorizationOptions options, string policy_name) => new AuthPolicyMaker() { PolicyName = policy_name, Options = options };
+        public static AuthPolicyMaker EnforceScheme(this AuthorizationOptions options) => new AuthPolicyMaker() { Options = options , EnforceScheme = true};
 
         public static AuthPolicyMaker WithSchemes(this AuthPolicyMaker input, params string[] scheme_names) {
             input.SchemeNames = scheme_names;
+            return input;
+        }
+        public static AuthPolicyMaker WithRequirements(this AuthPolicyMaker input, params IAuthorizationRequirement[] requirements) {
+            input.CustomRequirements = requirements;
             return input;
         }
         public static AuthPolicyMaker RequireRoles(this AuthPolicyMaker input, params string[] role_names) {
@@ -97,6 +114,10 @@ namespace Haley.Utils {
         public static AuthPolicyMaker RequireAllClaims(this AuthPolicyMaker input, params string[] claim_names) {
             input.ClaimNames = claim_names;
             input.AllClaims = true;
+            return input;
+        }
+        public static AuthPolicyMaker EnforceScheme(this AuthPolicyMaker input) {
+            input.EnforceScheme = true;
             return input;
         }
         public static AuthPolicyMaker ForPolicy(this AuthPolicyMaker input, string policy_name) {
@@ -120,8 +141,10 @@ namespace Haley.Utils {
                 policy_name: input.PolicyName, 
                 scheme_names: input.SchemeNames,
                 requiredRoles: input.RoleNames, 
+                customRequirements: input.CustomRequirements,
                 requiredClaims: input.ClaimNames, 
                 processor: processor,
+                enforceScheme: input.EnforceScheme, //default is false
                 allRoles:input.AllRoles,
                 allClaims:input.AllClaims);
         }

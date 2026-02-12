@@ -32,6 +32,7 @@ namespace Haley.Models {
         internal bool UseAuthorization { get; set; } = false;
         internal bool AddFeedbackFilter { get; set; }
         internal bool DisplayTraceMessage { get; set; }
+        internal bool EnableDefaultAuthorizationHandlers { get; set; } = true;
         internal Func<IActionResult?, Task> FeedbackFilterHandler { get; set; }
         internal string SwaggerRoute { get; set; }
         internal List<SwaggerInput> SwaggerSchemes { get; set; } = new List<SwaggerInput> { new SwaggerInput(BaseSchemeNames.HEADER_BEARER_JWT, "Authorization", SecuritySchemeType.Http) };

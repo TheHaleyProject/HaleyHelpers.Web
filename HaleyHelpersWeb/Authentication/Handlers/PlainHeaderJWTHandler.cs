@@ -15,21 +15,19 @@ using System.Text.Encodings.Web;
 
 namespace Haley.Models {
 
-    public class PlainHeaderAuthTokenHandler : PlainAuthHandlerBase<JwtAuthOptions> {
+    public class PlainHeaderJWTHandler : PlainAuthHandlerBase<JwtAuthOptions> {
 
-        public PlainHeaderAuthTokenHandler(IOptionsMonitor<JwtAuthOptions> options, ILoggerFactory logger, UrlEncoder encoder, ISystemClock clock) : base(options, logger, encoder, clock) {
+        public PlainHeaderJWTHandler(IOptionsMonitor<JwtAuthOptions> options, ILoggerFactory logger, UrlEncoder encoder, ISystemClock clock) : base(options, logger, encoder, clock) {
         }
 
-        protected override PlainAuthMode AuthMode { get; set; } = PlainAuthMode.HeaderAuthToken;
+        protected override PlainAuthMode AuthMode { get; set; } = PlainAuthMode.HeaderJWT;
         protected override Func<HttpContext, string, ILogger, Task<AuthenticateResult>>? Validator => async (c, t, l) => {
             if (string.IsNullOrEmpty(t)) {
                 return AuthenticateResult.NoResult();
             }
-
             var jwtOptions = OptionsMonitor.Get(Scheme.Name);
-
             try {
-                var principal = JWTUtil.ValidateToken(t, jwtOptions.ValidationParams, out var validatedToken);
+                var principal = JWTUtil.ValidateToken(t, jwtOptions.ValidationParams, out var validatedToken, Scheme.Name);
                 if (principal == null) return AuthenticateResult.Fail($"Unable to generate the principal");
                 var ticket = new AuthenticationTicket(principal, Scheme.Name);
                 return AuthenticateResult.Success(ticket);

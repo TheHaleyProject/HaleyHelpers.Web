@@ -17,9 +17,9 @@ namespace Haley.Utils {
         internal const string pathAttribute = "//saml:AttributeStatement/saml:Attribute";
 
         // Azure AD (Microsoft Entra) typical claim URIs
-        private const string CLAIM_EMAIL = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress";
-        private const string CLAIM_NAME = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name";
-        private const string CLAIM_UPN = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/upn";
+        //private const string CLAIM_EMAIL = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress";
+        //private const string CLAIM_NAME = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name";
+        //private const string CLAIM_UPN = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/upn";
         private const string CLAIM_OID = "http://schemas.microsoft.com/identity/claims/objectidentifier";
         private const string CLAIM_TID = "http://schemas.microsoft.com/identity/claims/tenantid";
         private const string CLAIM_GRP = "http://schemas.microsoft.com/ws/2008/06/identity/claims/groups";
@@ -112,9 +112,9 @@ namespace Haley.Utils {
         }
         private static string MapKnownType(string samlName) {
             return samlName switch {
-                CLAIM_EMAIL or "email" => ClaimTypes.Email,
-                CLAIM_NAME or "name" => ClaimTypes.Name,
-                CLAIM_UPN => "upn",
+                ClaimTypes.Email or "email" => ClaimTypes.Email,
+                ClaimTypes.Name or "name" => ClaimTypes.Name,
+                ClaimTypes.Upn => "upn",
                 CLAIM_OID => "oid",
                 CLAIM_TID => "tid",
                 CLAIM_GRP => ClaimTypes.GroupSid, // or a custom "groups" type if you prefer

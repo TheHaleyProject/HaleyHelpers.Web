@@ -1,8 +1,12 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Haley.Models;
+﻿using Haley.Models;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace Haley.Utils {
     public static class PolicyMakerExtensions {
+        private const string CLAIM_OID = "http://schemas.microsoft.com/identity/claims/objectidentifier";
+        private const string CLAIM_TID = "http://schemas.microsoft.com/identity/claims/tenantid";
+        private static string[] ROLE_MAP = new string[] {"role", "roles", "http://schemas.microsoft.com/ws/2008/06/identity/claims/role" };
         public static void CreateAuthPolicy(this AuthorizationOptions options, string policy_name, string scheme_name, Action<AuthorizationPolicyBuilder>? processor = null) { 
             options.CreateAuthPolicy(policy_name, new string[] { scheme_name }, processor: processor);
         }
@@ -19,33 +23,50 @@ namespace Haley.Utils {
 
             if (requiredRoles != null && requiredRoles.Length > 0) {
                 var roles = requiredRoles.Where(p => !string.IsNullOrWhiteSpace(p)).Distinct().ToList();
-
-                if (!allRoles) {
-                    policyBuilder.RequireRole(roles.ToArray()); //Here, role is OR condition. Presence of any role will be accepted.
-                } else {
-                    policyBuilder.RequireAssertion(ctx =>
-                     roles.All(r => ctx.User.IsInRole(r))
-                    );
-                }
+               
+                policyBuilder.RequireAssertion(ctx => {
+                    var userRoles = ctx.User.Claims
+                        .Where(c => ROLE_MAP.Contains(c.Type,StringComparer.OrdinalIgnoreCase))
+                        .Select(c => c.Value)
+                        .ToList();
+                    //    policyBuilder.RequireRole(roles.ToArray()); //Here, role is OR condition. Presence of any role will be accepted.
+                    return allRoles
+                        ? roles.All(r => userRoles.Contains(r, StringComparer.OrdinalIgnoreCase))
+                        : roles.Any(r => userRoles.Contains(r, StringComparer.OrdinalIgnoreCase));
+                });
             }
 
             if (requiredClaims != null && requiredClaims.Length > 0) {
-                var claims = requiredClaims.Where(p => !string.IsNullOrWhiteSpace(p)).Distinct().ToList();
-                if (!allClaims) {
-                    foreach (var claim in claims) {
-                        policyBuilder.RequireClaim(claim);
-                    }
-                } else {
-                    policyBuilder.RequireAssertion(ctx =>
-                     //claims.All(c => ctx.User.HasClaim(c, ctx.User.FindFirst(c)?.Value))
-                     claims.All(rc => ctx.User.Claims.Any(c => c.Type == rc))  
-                    );
-                }
+                var claims = requiredClaims.Where(p => !string.IsNullOrWhiteSpace(p)).Select(q=> q.MapKnownType()).Distinct().ToList();
+                policyBuilder.RequireAssertion(ctx=> {
+                    var userClaims = ctx.User.Claims.Select(c => c.Type.MapKnownType()).ToList();
+                    return allClaims
+                        ? claims.All(rc => userClaims.Any(uc => uc.Equals(rc, StringComparison.OrdinalIgnoreCase)))
+                        : claims.Any(rc => userClaims.Any(uc => uc.Equals(rc, StringComparison.OrdinalIgnoreCase)));
+                    //policyBuilder.RequireClaim(claim); //issues with MapKnownTypes
+                });
             }
 
             processor?.Invoke(policyBuilder);
             options.AddPolicy(policy_name, policyBuilder.Build());
         }
+
+        static string MapKnownType(this string claimName) {
+            return claimName.ToLowerInvariant() switch {
+                ClaimTypes.Email or "email" => ClaimTypes.Email,
+                ClaimTypes.Name or "name" => ClaimTypes.Name,
+                ClaimTypes.GivenName or "given_name" or "givenname" => ClaimTypes.GivenName,
+                ClaimTypes.Surname or "family_name" or "surname" => ClaimTypes.Surname,
+                ClaimTypes.NameIdentifier or "sub" or "nameid" => ClaimTypes.NameIdentifier,
+                ClaimTypes.Role or "role" or "roles" => ClaimTypes.Role,
+                ClaimTypes.Upn or "upn" => ClaimTypes.Upn,
+                CLAIM_OID or "oid" => "oid",
+                CLAIM_TID or "tid" => "tid",
+                ClaimTypes.GroupSid or "groups" => ClaimTypes.GroupSid,
+                _ => claimName
+            };
+        }
+
         public static AuthPolicyMaker WithSchemes(this AuthorizationOptions options, params string[] scheme_names) => new AuthPolicyMaker() { SchemeNames = scheme_names, Options = options };
         public static AuthPolicyMaker RequireRoles(this AuthorizationOptions options, params string[] role_names) => new AuthPolicyMaker() { RoleNames = role_names, Options = options };
         public static AuthPolicyMaker RequireClaims(this AuthorizationOptions options, params string[] claim_names) => new AuthPolicyMaker() { ClaimNames = claim_names, Options = options };

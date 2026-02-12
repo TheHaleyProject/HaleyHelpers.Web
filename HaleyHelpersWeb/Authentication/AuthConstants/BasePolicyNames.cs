@@ -5,6 +5,8 @@
     //3. Scheme is configured in the authentication middleware, Policy is configured in the authorization middleware.
     //4. Scheme basically tells us "who you are" while Policy tells us "what you can do".
     public class BasePolicyNames {
+        public const string Any = "Plain-Policy-Any";
+
         public const string General = "Plain-Policy-General";
         public const string Reader = "Plain-Policy-Read-Only";
         public const string Creator = "Plain-Policy-Create";

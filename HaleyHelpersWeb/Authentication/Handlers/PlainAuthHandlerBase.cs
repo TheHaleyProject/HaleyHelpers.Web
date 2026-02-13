@@ -17,7 +17,17 @@ namespace Haley.Models {
         }
         protected virtual Task<IFeedback<string>> GetToken() => GetTokenInternal(Options.Key);
         protected abstract PlainAuthMode AuthMode { get; set; }
-        protected virtual Func<HttpContext, string, ILogger, Task<AuthenticateResult>>? Validator { get; set; }
+        protected virtual Func<HttpContext, string, ILogger, Task<PlainAuthResult>>? PrepareClaims { get; set; }
+        protected virtual async Task<AuthenticateResult> GenerateResult (PlainAuthResult? result, ILogger logger) {
+            try {
+                if (result == null || result.Status == false) return AuthenticateResult.Fail(result?.Message ?? "Unknown error during claims preparation.");
+                return AuthenticateResult.Success(WebAuthUtils.PrepareAuthTicket(result, Scheme.Name));
+            } catch (Exception ex) {
+                return AuthenticateResult.Fail(ex.Message);
+            }
+        }
+
+
         protected override async Task<AuthenticateResult> HandleAuthenticateAsync() {
             //Authentication.NoResult() → skips this handler and moves to the next one (if any). Applicable when there are multiple authentication schemes.
             //Authentication.Fail() → fails the authentication immediately. Even if multiple authentication schemes are configured, the process stops here.
@@ -53,8 +63,8 @@ namespace Haley.Models {
                 message += $@"Auth Mode : {AuthMode.ToString()}";
                 message += Environment.NewLine;
 
-                if (Options.Validator == null && Validator == null) {
-                    message += "Auth validator is missing";
+                if (Options.PrepareClaims == null && PrepareClaims == null) {
+                    message += "Claims Generator is missing";
                     Logger?.LogError(message);
                     return AuthenticateResult.Fail(message);
                 }
@@ -72,25 +82,19 @@ namespace Haley.Models {
                     return AuthenticateResult.Fail(message);
                 }
 
-                if (Options.Validator != null) {
-                    var validation = await Options.Validator.Invoke(Context, tokenObj.Result, Logger);
-                    if (!validation.Status) {
-                        message += $@"Auth Failed. Error: {validation.Message}";
-                        Logger?.LogError(message);
-                        return AuthenticateResult.Fail(message);
-                    }
-
-                    var identity = new ClaimsIdentity(validation.Result, this.Scheme.Name);
-                    var principal = new ClaimsPrincipal(identity);
-                    var ticket = new AuthenticationTicket(principal, this.Scheme.Name);
-                    return AuthenticateResult.Success(ticket);
-                } else if (Validator != null) {
-                    return await Validator.Invoke(Context, tokenObj.Result, Logger);
-                } else {
-                    message += $@"Auth Failed. Error: No validator was found";
+                //PREPARE CLAIMS (to be sent to next level)
+                var claimsResult = Options.PrepareClaims != null ? 
+                    await Options.PrepareClaims.Invoke(Context, tokenObj.Result, Logger) 
+                    : PrepareClaims != null ? await PrepareClaims.Invoke(Context, tokenObj.Result, Logger) : null;
+               
+                if(claimsResult == null || !claimsResult.Status) {
+                    message += $@"Auth Failed. Error: Claims Generation failed. {claimsResult.Message}";
                     Logger?.LogError(message);
                     return AuthenticateResult.Fail(message);
                 }
+
+                //PREPARE THE RESULT
+                return await GenerateResult(claimsResult, Logger);
             } catch (Exception ex) {
                 Logger?.LogError($@"Error: {ex.ToString()}");
                 return AuthenticateResult.Fail($@"Exception Occured");

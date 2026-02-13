@@ -123,10 +123,9 @@ namespace Haley.Utils {
         }
        
 
-        public static AuthenticateResult ValidateAzurePayload(HttpRequest request, string base64Xml, ILogger log, string scheme_name, SamlAuthOptions options) { 
+        public static PlainAuthResult ValidateAzurePayload(HttpRequest request, string base64Xml, ILogger log, string scheme_name, SamlAuthOptions options) { 
             try {
-                if (string.IsNullOrWhiteSpace(base64Xml))
-                    return AuthenticateResult.NoResult();
+                if (string.IsNullOrWhiteSpace(base64Xml)) return new PlainAuthResult() { Status = false, Message = "SAML response is missing" };
 
                 var audience = string.IsNullOrWhiteSpace(options.Audience) ? options.SpEntityId : options.Audience;
 
@@ -143,12 +142,10 @@ namespace Haley.Utils {
                 var cert = options.SigningCert; //?? await SamlMetadataCache.GetSigningCertAsync(o.IdpMetadataUrl, ctx.RequestServices, log); 
 
                 // 4) Validate signature on Response or Assertion
-                if (!ValidateSignature(doc, cert))
-                    return AuthenticateResult.Fail("Invalid SAML signature");
+                if (!ValidateSignature(doc, cert)) return new PlainAuthResult() { Status = false, Message = "Invalid SAML signature" };
 
                 // 5) Validate Conditions (NotBefore/NotOnOrAfter) and Audience
-                if (!ValidateConditionsAndAudience(doc, audience, options.AllowedClockSkew))
-                    return AuthenticateResult.Fail("SAML conditions/audience check failed");
+                if (!ValidateConditionsAndAudience(doc, audience, options.AllowedClockSkew)) return new PlainAuthResult() { Status = false, Message = "SAML conditions/audience check failed" };
 
                 // 6) Extract claims (NameID + attributes you care about)
                 var claims = ExtractClaims(doc, options.SpEntityId);
@@ -160,14 +157,10 @@ namespace Haley.Utils {
                 }
                 claims.Add(new Claim(BaseClaimTypes.RELAY_STATE, relayState));
 
-                // 7) Success -> ticket
-                var identity = new ClaimsIdentity(claims, scheme_name);
-                var principal = new ClaimsPrincipal(identity);
-                var ticket = new AuthenticationTicket(principal, scheme_name);
-                return AuthenticateResult.Success(ticket);
+                return new PlainAuthResult() { Status = true, Message = "SAML validation successful", Result = claims };
             } catch (Exception ex) {
                 log?.LogError(ex, "SAML validation failed");
-                return AuthenticateResult.Fail("SAML validation failed");
+                return new PlainAuthResult() { Status = false, Message = "SAML validation error: " + ex.Message };
             }
         }
 

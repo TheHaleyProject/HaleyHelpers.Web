@@ -2,9 +2,14 @@
 using Haley.Models;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Identity.Client;
+using Microsoft.IdentityModel.Tokens;
+using System.Management;
 using System.Net.Mail;
 using System.Runtime.CompilerServices;
+using System.Security.Claims;
 using System.Security.Cryptography.X509Certificates;
+using System.Security.Principal;
 using System.Text;
 
 namespace Haley.Utils {
@@ -96,6 +101,31 @@ namespace Haley.Utils {
             return decrypted.FromJson<Dictionary<string, string>>();
         }
 
-        public static void AddAzureSamlPolicy(this AuthorizationOptions options, string policyName, string schemeName = BaseSchemeNames.FORM_TOKEN_AZURE_SAML) => options.WithSchemes(schemeName).ForPolicy(policyName).CreateAuthPolicy();
+        public static void AddAzureSamlPolicy(this AuthorizationOptions options, string policyName, string schemeName = BaseSchemeNames.FORM_TOKEN_AZURE_SAML) => options.WithSchemes(schemeName).ForPolicy(policyName).CreateAuthPolicy(); //Should we enforce??
+
+        static AuthenticationTicket PrepareAuthTicketInternal(List<Claim> claims, string scheme_name) {
+            var identity = new ClaimsIdentity(claims, scheme_name);
+            var principal = new ClaimsPrincipal(identity);
+            var ticket = new AuthenticationTicket(principal, scheme_name);
+            return ticket;
+        }
+
+        public static AuthenticationTicket PrepareAuthTicket(PlainAuthResult result, string scheme_name) {
+            if (result == null) throw new ArgumentNullException(nameof(result));
+            if (result.Principal != null) {
+                //Reset the identity with the new scheme name to ensure it matches the authentication scheme being used
+                if (!string.IsNullOrEmpty(scheme_name) && result.Principal?.Identity is ClaimsIdentity oldIdentity) {
+                    var newIdentity = new ClaimsIdentity(oldIdentity.Claims, scheme_name);
+                    var newPrincipal =  new ClaimsPrincipal(newIdentity);
+                    return new AuthenticationTicket(newPrincipal, scheme_name);  
+                }
+                return new AuthenticationTicket(result.Principal!, scheme_name);
+            } else if (result.Result == null) {
+                throw new ArgumentException("Result claims cannot be null when Principal is not provided.");
+            } else { 
+                return PrepareAuthTicketInternal(result.Result, scheme_name);
+            }
+        }
+       
     }
 }

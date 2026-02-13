@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Options;
 using Microsoft.Identity.Client;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.IdentityModel.Tokens.Experimental;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -21,19 +22,12 @@ namespace Haley.Models {
         }
 
         protected override PlainAuthMode AuthMode { get; set; } = PlainAuthMode.HeaderJWT;
-        protected override Func<HttpContext, string, ILogger, Task<AuthenticateResult>>? Validator => async (c, t, l) => {
-            if (string.IsNullOrEmpty(t)) {
-                return AuthenticateResult.NoResult();
-            }
+
+        protected override Func<HttpContext, string, ILogger, Task<PlainAuthResult>>? PrepareClaims => async (c, t, l) => {
+            if (string.IsNullOrEmpty(t)) return new PlainAuthResult { Status = false, Message = "Token is null or empty." };
             var jwtOptions = OptionsMonitor.Get(Scheme.Name);
-            try {
-                var principal = JWTUtil.ValidateToken(t, jwtOptions.ValidationParams, out var validatedToken, Scheme.Name);
-                if (principal == null) return AuthenticateResult.Fail($"Unable to generate the principal");
-                var ticket = new AuthenticationTicket(principal, Scheme.Name);
-                return AuthenticateResult.Success(ticket);
-            } catch (Exception ex) {
-                return AuthenticateResult.Fail($"Token validation failed: {ex.Message}");
-            }
+            var claimsPrincipal = JWTUtil.ValidateToken(t, jwtOptions.ValidationParams, out var validatedToken, Scheme.Name);
+            return new PlainAuthResult() { Status = true,Principal = claimsPrincipal, Message = "Token validated successfully." };
         };
     }
 }

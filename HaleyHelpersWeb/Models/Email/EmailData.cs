@@ -1,8 +1,8 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel.DataAnnotations;
+using Haley.Abstractions;
 
 namespace Haley.Models {
-
     public class EmailData : IEmailData {
         public string[]? To { get; set; }
         public string[]? CC { get; set; }

@@ -27,7 +27,7 @@ namespace Haley.Models {
             if (string.IsNullOrEmpty(t)) return new PlainAuthResult { Status = false, Message = "Token is null or empty." };
             var jwtOptions = OptionsMonitor.Get(Scheme.Name);
             var claimsPrincipal = JWTUtil.ValidateToken(t, jwtOptions.ValidationParams, out var validatedToken, Scheme.Name);
-            return new PlainAuthResult() { Status = true,Principal = claimsPrincipal, Message = "Token validated successfully." };
+            return new PlainAuthResult() { Status =  claimsPrincipal != null,Principal = claimsPrincipal, Message = "Token validated successfully." };
         };
     }
 }

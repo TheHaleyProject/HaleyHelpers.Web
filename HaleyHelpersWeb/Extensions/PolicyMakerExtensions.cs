@@ -58,7 +58,7 @@ namespace Haley.Utils {
             }
 
             //ENFORCE SCHEME
-            if (enforceScheme) policyBuilder.AddRequirements(new EnforcePolicySchemeRequirement()); 
+            if (enforceScheme) policyBuilder.AddRequirements(new EnforceEndPointPolicySchemeRequirement()); 
 
             processor?.Invoke(policyBuilder);
             options.AddPolicy(policy_name, policyBuilder.Build());

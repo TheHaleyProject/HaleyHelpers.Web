@@ -165,5 +165,24 @@ namespace Haley.Utils {
             if (typeof(IActionResult).IsAssignableFrom(input.GetType())) return input;
             return input;
         }
+
+        public static ObjectResult AsResult(this HttpStatusCode code, object? data = null, string? location = null) {
+            switch (code) {
+                case HttpStatusCode.OK:
+                return new OkObjectResult(data);
+                case HttpStatusCode.Created: //Change later
+                return new CreatedResult(location, data);
+                case HttpStatusCode.Accepted:
+                return new AcceptedResult(location, data);
+                case HttpStatusCode.Conflict:
+                return new ConflictObjectResult(data);
+                case HttpStatusCode.Unauthorized:
+                return new UnauthorizedObjectResult(data);
+                case HttpStatusCode.NotFound:
+                return new NotFoundObjectResult(data);
+                default:
+                return new ObjectResult(data) { StatusCode = (int)code };
+            }
+        }
     }
 }

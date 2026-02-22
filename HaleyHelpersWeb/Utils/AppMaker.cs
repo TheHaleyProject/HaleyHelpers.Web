@@ -258,7 +258,7 @@ namespace Haley.Utils {
             //ADD AUTHORIZAITON HANDLERS
             if (input.EnableDefaultAuthorizationHandlers) {
                 builder.Services.AddHttpContextAccessor();
-                builder.Services.AddScoped<IAuthorizationHandler, EnforcePolicySchemeHandler>(); //For enforcing policies
+                builder.Services.AddScoped<IAuthorizationHandler, EnforceEndPointPolicySchemeHandler>(); //For enforcing policies
                 builder.Services.AddScoped<IAuthorizationHandler, MustUseSchemeHandler>(); //For custom policies
                 builder.Services.AddScoped<IAuthorizationHandler, MinimumAgeHandler>(); //Sample, minimum age handler
             }

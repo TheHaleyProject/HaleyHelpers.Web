@@ -9,7 +9,7 @@ using System.Security.Claims;
 using System.Text.Encodings.Web;
 
 namespace Haley.Models {
-    public class EnforcePolicySchemeRequirement : IAuthorizationRequirement {
+    public class EnforceEndPointPolicySchemeRequirement : IAuthorizationRequirement {
       
     }
 }

@@ -9,16 +9,16 @@ using System.Security.Claims;
 using System.Text.Encodings.Web;
 
 namespace Haley.Models {
-    internal class EnforcePolicySchemeHandler : AuthorizationHandler<EnforcePolicySchemeRequirement> {
+    internal class EnforceEndPointPolicySchemeHandler : AuthorizationHandler<EnforceEndPointPolicySchemeRequirement> {
         private readonly IAuthorizationPolicyProvider _policyProvider;
         private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public EnforcePolicySchemeHandler(IAuthorizationPolicyProvider policyProvider, IHttpContextAccessor httpContextAccessor) {
+        public EnforceEndPointPolicySchemeHandler(IAuthorizationPolicyProvider policyProvider, IHttpContextAccessor httpContextAccessor) {
             _policyProvider = policyProvider;
             _httpContextAccessor = httpContextAccessor;
         }
 
-        protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, EnforcePolicySchemeRequirement requirement) {
+        protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, EnforceEndPointPolicySchemeRequirement requirement) {
             var httpContext = _httpContextAccessor.HttpContext;
             if (httpContext == null) {
                 return;

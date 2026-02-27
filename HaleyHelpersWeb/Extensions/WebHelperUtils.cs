@@ -153,7 +153,7 @@ namespace Haley.Utils {
             } 
         }
 
-        public static object ConvertDBAResult(this object input, ResultFilter filter = ResultFilter.FirstDictionaryValue) {
+        public static object ConvertDBAResult(this object input) {
             //If we send error
             if (input is FeedbackError dbaerr) {
                 return new BadRequestObjectResult(dbaerr.ToString());

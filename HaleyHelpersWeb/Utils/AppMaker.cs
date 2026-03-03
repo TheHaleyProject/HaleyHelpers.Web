@@ -2,7 +2,7 @@
 using Haley.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi;
 using Haley.Abstractions;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -137,36 +137,32 @@ namespace Haley.Utils {
             gen.OrderActionsBy((apiDesc) => $"{apiDesc.RelativePath}");
             //gen.DescribeAllParametersInCamelCase();
 
-            //Foreach values (add definition & security requirements)
-            var osr = new OpenApiSecurityRequirement();
-
             foreach (var swgInp in swaggerInputs) {
+                var scheme = swgInp.SchemeName;
 
-                var sw_sch_name = swgInp.SchemeName;
-
-                if (swgInp.SchemeType == SecuritySchemeType.Http) {
-                    if (sw_sch_name != "bearer" && sw_sch_name != "basic") {
-                        sw_sch_name = "bearer"; //Resetting the scheme name for HTTP
-                    }
+                if (swgInp.SchemeType == SecuritySchemeType.Http &&
+                    scheme != "bearer" && scheme != "basic") {
+                    scheme = "bearer";
                 }
 
                 gen.AddSecurityDefinition(swgInp.SchemeName, new OpenApiSecurityScheme {
                     Name = swgInp.HeaderName,
-                    Description = $@"Please provide a JWT Token for policy : {swgInp.SchemeName}",
+                    Description = $"Please provide a JWT Token for policy : {swgInp.SchemeName}",
                     In = ParameterLocation.Header,
                     Type = swgInp.SchemeType,
                     BearerFormat = "JWT",
-                    Scheme = sw_sch_name
+                    Scheme = scheme
                 });
-
-                osr.Add(new OpenApiSecurityScheme {
-                    Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = swgInp.SchemeName },
-                    In = ParameterLocation.Header
-                },new string[] { });
             }
 
-            //gen.OperationFilter<IOperationFilter> //Add implementation of a custom filter. Or use the below security requirement
-            gen.AddSecurityRequirement(osr);
+            gen.AddSecurityRequirement(document =>
+            {
+                var requirement = new OpenApiSecurityRequirement();
+                foreach (var swgInp in swaggerInputs) {
+                    requirement[new OpenApiSecuritySchemeReference(swgInp.SchemeName, document)] = new List<string>();
+                }
+                return requirement;
+            });
         }
 
         static void InitiateSwagger(WebApplication app,string swaggerRoute) {

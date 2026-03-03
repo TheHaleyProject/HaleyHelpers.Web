@@ -3,7 +3,7 @@ using Haley.Enums;
 using Haley.Utils;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Server.HttpSys;
-using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi;
 using System.Reflection.Metadata.Ecma335;
 
 namespace Haley.Models {

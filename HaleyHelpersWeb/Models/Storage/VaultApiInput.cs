@@ -2,7 +2,7 @@
 
 namespace Haley.Models {
 
-    public class VaultInfo {
+    public class VaultApiInput {
 
         [FromQuery(Name = "c")]
         public string? ClientName { get; set; } //Sometimes we dont' want any root dir to be specified. We direclty start uploading.
@@ -14,7 +14,7 @@ namespace Haley.Models {
         public string? DirectoryName { get; set; } //Sometimes we dont' want any root dir to be specified. We direclty start uploading.
         [FromQuery(Name = "dp")]
         public long? DirectoryParent { get; set; } //Sometimes we dont' want any root dir to be specified. We direclty start uploading.
-        public VaultInfo() {
+        public VaultApiInput() {
         }
     }
 }

@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Haley.Models {
 
-    public class VaultFileInfo : VaultInfo { //YES.. Read base is based on write base.
+    public class VaultFileApiInput : VaultApiInput { //YES.. Read base is based on write base.
 
         [FromQuery(Name = "tn")]
         public string? TargetName { get; set; }
@@ -11,7 +11,7 @@ namespace Haley.Models {
         public string? ProcessedName { get; set; }
         [FromQuery(Name = "uid")]
         public string? Cuid { get; set; }
-        public VaultFileInfo() {
+        public VaultFileApiInput() {
         }
     }
 }

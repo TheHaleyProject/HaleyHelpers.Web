@@ -9,6 +9,8 @@ using System.Reflection.PortableExecutable;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using System.Text.RegularExpressions;
+using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Http;
 
 namespace Haley.Models {
     public abstract class PlainAuthHandlerBase<T> : AuthenticationHandler<T> where T: PlainAuthOptions,new() {

@@ -6,9 +6,9 @@ namespace Haley.Models {
     public class VaultFileApiInput : VaultApiInput { //YES.. Read base is based on write base.
 
         [FromQuery(Name = "tn")]
-        public string? TargetName { get; set; }
+        public string? RequestedName { get; set; }
         [FromQuery(Name = "pn")]
-        public string? ProcessedName { get; set; }
+        public string? SanitizedName { get; set; }
         [FromQuery(Name = "uid")]
         public string? Cuid { get; set; }
         public VaultFileApiInput() {

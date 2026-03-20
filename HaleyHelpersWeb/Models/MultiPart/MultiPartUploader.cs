@@ -131,8 +131,8 @@ namespace Haley.Models {
 
                 await using var tempStream = new FileStream(file.TempPath, FileMode.Open, FileAccess.Read);
                 reqClone.FileStream = tempStream;
-                reqClone.FileOriginalName = file.FileName;
-                reqClone.SetTargetName(file.FileName);
+                reqClone.OriginalName = file.FileName;
+                reqClone.SetRequestedName(file.FileName);
 
                 IVaultResponse saveSummary = new VaultResponse() { Status = false };
                 try {
@@ -208,7 +208,7 @@ namespace Haley.Models {
                                 var msg = $"File '{fileName}' rejected by validation handler. Reason {validationFb.Message}";
                                 if (_throwExceptions) throw new Exception(msg);
                                 var failedResponse = new VaultResponse {
-                                    RawName = fileName,
+                                    OriginalName = fileName,
                                     Status = false,
                                     Message = msg
                                 };
@@ -245,7 +245,7 @@ namespace Haley.Models {
                                     if (_throwExceptions) throw new Exception(msg);
 
                                     var failedResponse = new VaultResponse {
-                                        RawName = fileName,
+                                        OriginalName = fileName,
                                         Status = false,
                                         Message = msg
                                     };

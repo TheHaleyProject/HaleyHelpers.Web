@@ -169,11 +169,7 @@ namespace Haley.Utils {
             var swgRoute = swaggerRoute;
             if (string.IsNullOrWhiteSpace(swgRoute)) {
                 try {
-                    //user didn't provide any kind of override. Let us try to check if the variable contains any swagger route.
-                    //var root = ResourceUtils.GenerateConfigurationRoot();
-                    var swgrFb = ResourceUtils.FetchVariable(SWAGGERROUTE);
-                    if (!string.IsNullOrWhiteSpace(swgrFb?.Result?.ToString())) swgRoute = swgrFb?.Result?.ToString();
-                  
+                    swgRoute = ResourceUtils.FetchVariable(SWAGGERROUTE).Result?.ToString();
                 } catch (Exception ex) {
                     Console.WriteLine($@"Exception while trying to load the swagger route.");
                 }
